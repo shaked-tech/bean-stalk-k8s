@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-metrics-frontend
+  namespace: pod-metrics-dashboard
+  labels:
+    app: pod-metrics-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pod-metrics-frontend
+  template:
+    metadata:
+      labels:
+        app: pod-metrics-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: pod-metrics-frontend:latest
+        imagePullPolicy: Never  # For Kind local development
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "25m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pod-metrics-frontend-service
+  namespace: pod-metrics-dashboard
+  labels:
+    app: pod-metrics-frontend
+spec:
+  selector:
+    app: pod-metrics-frontend
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  type: ClusterIP  # For internal cluster communication
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: pod-metrics-dashboard
+data:
+  default.conf: |
+    server {
+        listen       80;
+        listen  [::]:80;
+        server_name  localhost;
+
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+            try_files $uri $uri/ /index.html;
+        }
+
+        # Proxy API requests to backend service
+        location /api {
+            proxy_pass http://pod-metrics-backend-service:8080;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /usr/share/nginx/html;
+        }
+    }

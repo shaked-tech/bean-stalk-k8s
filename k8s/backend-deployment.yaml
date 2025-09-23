@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-metrics-backend
+  namespace: pod-metrics-dashboard
+  labels:
+    app: pod-metrics-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pod-metrics-backend
+  template:
+    metadata:
+      labels:
+        app: pod-metrics-backend
+    spec:
+      serviceAccountName: pod-metrics-backend
+      containers:
+      - name: backend
+        image: pod-metrics-backend:latest
+        imagePullPolicy: Never  # For Kind local development
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PORT
+          value: "8080"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pod-metrics-backend-service
+  namespace: pod-metrics-dashboard
+  labels:
+    app: pod-metrics-backend
+spec:
+  selector:
+    app: pod-metrics-backend
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
