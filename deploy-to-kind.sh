@@ -133,31 +133,38 @@ docker exec -it kind-control-plane crictl images | grep pod-metrics || echo "War
 
 # Install metrics-server if not already installed
 echo "📊 Installing metrics-server..."
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+## kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+# helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+# helm repo update
+# helm upgrade --install metrics-server metrics-server/metrics-server --namespace kube-system --create-namespace
+helm upgrade --install metrics-server metrics-server/metrics-server \
+  --namespace kube-system \
+  --create-namespace \
+  --set "args={--secure-port=10250,--kubelet-insecure-tls}"
 
-# Patch metrics-server for Kind (disable TLS verification)
-kubectl patch deployment metrics-server -n kube-system --patch '
-{
-  "spec": {
-    "template": {
-      "spec": {
-        "containers": [
-          {
-            "name": "metrics-server",
-            "args": [
-              "--cert-dir=/tmp",
-              "--secure-port=10250",
-              "--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname",
-              "--kubelet-use-node-status-port",
-              "--metric-resolution=15s",
-              "--kubelet-insecure-tls"
-            ]
-          }
-        ]
-      }
-    }
-  }
-}'
+# # Patch metrics-server for Kind (disable TLS verification)
+# kubectl patch deployment metrics-server -n kube-system --patch '
+# {
+#   "spec": {
+#     "template": {
+#       "spec": {
+#         "containers": [
+#           {
+#             "name": "metrics-server",
+#             "args": [
+#               "--cert-dir=/tmp",
+#               "--secure-port=10250",
+#               "--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname",
+#               "--kubelet-use-node-status-port",
+#               "--metric-resolution=15s",
+#               "--kubelet-insecure-tls"
+#             ]
+#           }
+#         ]
+#       }
+#     }
+#   }
+# }'
 
 # Wait for metrics-server to be ready
 echo "⏳ Waiting for metrics-server to be ready..."
@@ -198,7 +205,7 @@ echo -e "  ${YELLOW}Frontend:${NC} pod-metrics-frontend:$VERSION"
 echo ""
 echo -e "${BLUE}🌐 To access the dashboard:${NC}"
 echo "1. Port forward the frontend service:"
-echo "   kubectl port-forward -n pod-metrics-dashboard service/pod-metrics-frontend-service 3000:80"
+echo "   kubectl port-forward -n pod-metrics-dashboard service/pod-metrics-frontend-service 3000:8080"
 echo ""
 echo "2. Open your browser to: http://localhost:3000"
 echo ""
