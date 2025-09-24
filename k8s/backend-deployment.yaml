@@ -18,7 +18,7 @@ spec:
       serviceAccountName: pod-metrics-backend
       containers:
       - name: backend
-        image: pod-metrics-backend:latest
+        image: pod-metrics-backend:debug
         imagePullPolicy: Never  # For Kind local development
         ports:
         - containerPort: 8080

@@ -1,9 +1,10 @@
 # Kubernetes Pod Metrics Dashboard
 
-A comprehensive web application that provides real-time visualization of Kubernetes pod resource usage, displaying CPU and memory metrics collected from the Kubernetes metrics-server. Features include namespace filtering, sorting capabilities, and visual progress bars showing resource utilization against requests and limits.
+A comprehensive web application that provides both real-time and historical visualization of Kubernetes pod resource usage. Features include 7-day historical analysis, trend detection, resource optimization recommendations, and advanced monitoring through integrated Prometheus and Grafana stack.
 
 ## 🚀 Features
 
+### Real-time Monitoring
 - **Real-time Metrics**: Live pod CPU and memory usage data
 - **Resource Comparison**: Visual comparison of usage vs requests/limits
 - **Namespace Filtering**: Filter pods by specific namespaces
@@ -11,6 +12,21 @@ A comprehensive web application that provides real-time visualization of Kuberne
 - **Progress Bars**: Visual indicators for resource utilization
 - **Summary Statistics**: Overview cards showing total pods, averages, and high-usage alerts
 - **Responsive Design**: Material-UI components for a modern interface
+
+### Historical Analysis & Intelligence
+- **7-Day Historical Analysis**: Deep insights into resource usage patterns
+- **Trend Detection**: Identifies increasing, decreasing, or stable usage trends
+- **Resource Efficiency Analysis**: Calculates actual vs requested resource utilization
+- **Smart Recommendations**: AI-powered suggestions for resource optimization
+- **Waste Detection**: Identifies over-provisioned and under-provisioned resources
+- **Statistical Analysis**: P95/P99 percentiles, averages, peaks, and minimums
+- **Risk Assessment**: Categorizes pods by operational risk (low/medium/high)
+
+### Advanced Monitoring Stack
+- **Prometheus Integration**: Industry-standard time-series metrics collection
+- **Grafana Dashboards**: Professional monitoring dashboards with historical views
+- **Custom Dashboards**: Pre-built dashboards for pod resource analysis
+- **Alerting Ready**: Foundation for setting up resource usage alerts
 
 ## 🏗️ Architecture
 
@@ -38,12 +54,39 @@ A comprehensive web application that provides real-time visualization of Kuberne
 
 ## 📋 Prerequisites
 
+### Basic Requirements
 - **Docker** and **Docker Compose**
 - **Kubernetes cluster** with metrics-server installed
 - **kubectl** configured to access your cluster
 - **Kind** (for local testing) - optional
 - **Node.js** 18+ (for local development)
 - **Go** 1.21+ (for local development)
+
+### Monitoring Stack Prerequisites
+For historical analysis and advanced monitoring features, the following Helm repositories are required:
+
+```bash
+# Add required Helm repositories
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+helm repo update
+```
+
+#### Required Components:
+1. **Prometheus Stack** - For historical metrics collection and analysis
+   - **kube-prometheus-stack** Helm chart (includes Prometheus, Grafana, AlertManager)
+   - Automatically installed by deployment script
+   - Requires ~2GB memory and 15Gi storage for 7-day retention
+
+2. **Metrics Server** - For real-time metrics
+   - **metrics-server** Helm chart
+   - Automatically installed by deployment script
+   - Required for both real-time and historical analysis
+
+3. **Grafana** - For advanced dashboard visualization
+   - Included in kube-prometheus-stack
+   - Pre-configured with custom pod metrics dashboards
+   - Admin credentials: admin/pod-metrics-admin
 
 ## 🚀 Quick Start
 
@@ -132,12 +175,43 @@ npm run build
 
 ## 📡 API Endpoints
 
+### Real-time Metrics APIs
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/namespaces` | List all namespaces |
-| `GET` | `/api/pods` | Get all pod metrics |
+| `GET` | `/api/pods` | Get current pod metrics |
 | `GET` | `/api/pods?namespace=<name>` | Get pod metrics for specific namespace |
-| `GET` | `/health` | Health check endpoint |
+| `GET` | `/health` | Health check with feature availability |
+
+### Historical Analysis APIs
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/pods/analysis` | Get 7-day historical analysis for all pods |
+| `GET` | `/api/pods/analysis?namespace=<name>` | Get 7-day analysis for specific namespace |
+| `GET` | `/api/pods/trends?namespace=<ns>&pod=<name>` | Get detailed trend analysis for specific pod |
+
+### Monitoring Stack Access
+After deployment, access the monitoring interfaces:
+
+**Pod Metrics Dashboard** (Enhanced with historical analysis):
+```bash
+kubectl port-forward -n pod-metrics-dashboard service/pod-metrics-frontend-service 3000:8080
+```
+→ http://localhost:3000
+
+**Grafana** (Professional monitoring dashboards):
+```bash
+kubectl port-forward -n pod-metrics-dashboard service/prometheus-stack-grafana 3001:80
+```
+→ http://localhost:3001
+- **Username**: admin
+- **Password**: pod-metrics-admin
+
+**Prometheus** (Raw metrics and query interface):
+```bash
+kubectl port-forward -n pod-metrics-dashboard service/prometheus-stack-kube-prom-prometheus 9090:9090
+```
+→ http://localhost:9090
 
 ### Response Examples
 

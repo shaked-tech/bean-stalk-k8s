@@ -1,0 +1,305 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Pod Metrics Dashboard - 7 Day Analysis",
+    "tags": [
+      "kubernetes",
+      "pods",
+      "metrics"
+    ],
+    "style": "dark",
+    "timezone": "",
+    "editable": true,
+    "graphTooltip": 0,
+    "time": {
+      "from": "now-7d",
+      "to": "now"
+    },
+    "timepicker": {
+      "time_options": [
+        "5m",
+        "15m",
+        "1h",
+        "6h",
+        "12h",
+        "24h",
+        "7d",
+        "30d"
+      ]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "namespace",
+          "type": "query",
+          "query": "label_values(kube_pod_info, namespace)",
+          "refresh": 1,
+          "includeAll": true,
+          "allValue": ".*",
+          "multi": true,
+          "options": [],
+          "current": {
+            "value": "$__all",
+            "text": "All"
+          },
+          "datasource": "Prometheus"
+        },
+        {
+          "name": "pod",
+          "type": "query",
+          "query": "label_values(kube_pod_info{namespace=~\"$namespace\"}, pod)",
+          "refresh": 1,
+          "includeAll": true,
+          "allValue": ".*",
+          "multi": true,
+          "options": [],
+          "current": {
+            "value": "$__all",
+            "text": "All"
+          },
+          "datasource": "Prometheus"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Pod CPU Usage Over Time",
+        "type": "timeseries",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short",
+            "min": 0
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "visible",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "single"
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(container_cpu_usage_seconds_total{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"POD\", container!=\"\"}[5m]) * 1000",
+            "legendFormat": "{{namespace}}/{{pod}}/{{container}}",
+            "refId": "A"
+          }
+        ],
+        "datasource": "Prometheus"
+      },
+      {
+        "id": 2,
+        "title": "Pod Memory Usage Over Time",
+        "type": "timeseries",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "bytes",
+            "min": 0
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "visible",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "single"
+          }
+        },
+        "targets": [
+          {
+            "expr": "container_memory_working_set_bytes{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"POD\", container!=\"\"}",
+            "legendFormat": "{{namespace}}/{{pod}}/{{container}}",
+            "refId": "A"
+          }
+        ],
+        "datasource": "Prometheus"
+      },
+      {
+        "id": 3,
+        "title": "CPU Usage vs Requests",
+        "type": "timeseries",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short",
+            "min": 0
+          }
+        },
+        "targets": [
+          {
+            "expr": "rate(container_cpu_usage_seconds_total{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"POD\", container!=\"\"}[5m]) * 1000",
+            "legendFormat": "Usage - {{namespace}}/{{pod}}/{{container}}",
+            "refId": "A"
+          },
+          {
+            "expr": "kube_pod_container_resource_requests{namespace=~\"$namespace\", pod=~\"$pod\", resource=\"cpu\"} * 1000",
+            "legendFormat": "Request - {{namespace}}/{{pod}}/{{container}}",
+            "refId": "B"
+          }
+        ],
+        "datasource": "Prometheus"
+      },
+      {
+        "id": 4,
+        "title": "Memory Usage vs Requests",
+        "type": "timeseries",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "bytes",
+            "min": 0
+          }
+        },
+        "targets": [
+          {
+            "expr": "container_memory_working_set_bytes{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"POD\", container!=\"\"}",
+            "legendFormat": "Usage - {{namespace}}/{{pod}}/{{container}}",
+            "refId": "A"
+          },
+          {
+            "expr": "kube_pod_container_resource_requests{namespace=~\"$namespace\", pod=~\"$pod\", resource=\"memory\"}",
+            "legendFormat": "Request - {{namespace}}/{{pod}}/{{container}}",
+            "refId": "B"
+          }
+        ],
+        "datasource": "Prometheus"
+      },
+      {
+        "id": 5,
+        "title": "Resource Efficiency (Usage/Request %)",
+        "type": "stat",
+        "gridPos": {
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 16
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 50
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        },
+        "targets": [
+          {
+            "expr": "(rate(container_cpu_usage_seconds_total{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"POD\", container!=\"\"}[5m]) / on(namespace, pod, container) kube_pod_container_resource_requests{namespace=~\"$namespace\", pod=~\"$pod\", resource=\"cpu\"}) * 100",
+            "legendFormat": "CPU - {{namespace}}/{{pod}}/{{container}}",
+            "refId": "A"
+          },
+          {
+            "expr": "(container_memory_working_set_bytes{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"POD\", container!=\"\"} / on(namespace, pod, container) kube_pod_container_resource_requests{namespace=~\"$namespace\", pod=~\"$pod\", resource=\"memory\"}) * 100",
+            "legendFormat": "Memory - {{namespace}}/{{pod}}/{{container}}",
+            "refId": "B"
+          }
+        ],
+        "datasource": "Prometheus"
+      },
+      {
+        "id": 6,
+        "title": "Namespace Resource Summary",
+        "type": "table",
+        "gridPos": {
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 24
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        },
+        "targets": [
+          {
+            "expr": "sum by (namespace) (rate(container_cpu_usage_seconds_total{namespace=~\"$namespace\", container!=\"POD\", container!=\"\"}[5m]))",
+            "format": "table",
+            "legendFormat": "CPU Usage",
+            "refId": "A"
+          },
+          {
+            "expr": "sum by (namespace) (container_memory_working_set_bytes{namespace=~\"$namespace\", container!=\"POD\", container!=\"\"})",
+            "format": "table",
+            "legendFormat": "Memory Usage",
+            "refId": "B"
+          },
+          {
+            "expr": "sum by (namespace) (kube_pod_container_resource_requests{namespace=~\"$namespace\", resource=\"cpu\"})",
+            "format": "table",
+            "legendFormat": "CPU Requests",
+            "refId": "C"
+          },
+          {
+            "expr": "sum by (namespace) (kube_pod_container_resource_requests{namespace=~\"$namespace\", resource=\"memory\"})",
+            "format": "table",
+            "legendFormat": "Memory Requests",
+            "refId": "D"
+          }
+        ],
+        "datasource": "Prometheus"
+      }
+    ],
+    "refresh": "30s",
+    "schemaVersion": 27,
+    "version": 1
+  }
+}
