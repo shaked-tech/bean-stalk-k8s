@@ -600,6 +600,90 @@ func generatePodTrendSummary(containers []models.HistoricalMetrics) models.PodTr
 	}
 }
 
+// GetPodSummary returns summary statistics including low and high usage pods
+func (h *Handler) GetPodSummary(w http.ResponseWriter, r *http.Request) {
+	if h.prometheusClient == nil {
+		http.Error(w, "Service unavailable - Prometheus client not initialized", http.StatusServiceUnavailable)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	// Get namespace from query parameter
+	namespace := r.URL.Query().Get("namespace")
+
+	prometheusMetrics, err := h.prometheusClient.GetCurrentPodMetrics(ctx, namespace)
+	if err != nil {
+		log.Printf("Error getting pod metrics from Prometheus: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Convert Prometheus metrics to models format
+	var pods []models.PodMetrics
+	for _, metric := range prometheusMetrics {
+		podMetric := convertPrometheusToModelMetric(metric)
+		pods = append(pods, podMetric)
+	}
+
+	// Calculate summary statistics
+	totalPods := len(pods)
+	var totalCPUUsage, totalMemoryUsage float64
+	var highCPUPods, highMemoryPods int
+	var lowCPUPods, lowMemoryPods int
+
+	for _, pod := range pods {
+		// Add to totals for averages
+		totalCPUUsage += pod.CPU.RequestPercentage
+		totalMemoryUsage += pod.Memory.RequestPercentage
+
+		// Count high usage pods (>80%)
+		if pod.CPU.RequestPercentage > 80 {
+			highCPUPods++
+		}
+		if pod.Memory.RequestPercentage > 80 {
+			highMemoryPods++
+		}
+
+		// Count low usage pods (<40%)
+		if pod.CPU.RequestPercentage < 40 && pod.CPU.RequestPercentage > 0 {
+			lowCPUPods++
+		}
+		if pod.Memory.RequestPercentage < 40 && pod.Memory.RequestPercentage > 0 {
+			lowMemoryPods++
+		}
+	}
+
+	// Calculate averages
+	var averageCPUUsage, averageMemoryUsage float64
+	if totalPods > 0 {
+		averageCPUUsage = totalCPUUsage / float64(totalPods)
+		averageMemoryUsage = totalMemoryUsage / float64(totalPods)
+	}
+
+	// Create response
+	response := models.PodSummaryResponse{
+		TotalPods:          totalPods,
+		AverageCPUUsage:    averageCPUUsage,
+		AverageMemoryUsage: averageMemoryUsage,
+		HighCPUPods:        highCPUPods,
+		HighMemoryPods:     highMemoryPods,
+		LowCPUPods:         lowCPUPods,
+		LowMemoryPods:      lowMemoryPods,
+		GeneratedAt:        time.Now(),
+	}
+
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+
+	// Write response
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 // EnableCORS is a middleware that sets CORS headers
 func EnableCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
