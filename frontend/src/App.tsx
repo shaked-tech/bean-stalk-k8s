@@ -11,9 +11,11 @@ import {
   IconButton,
   Tooltip,
   Card,
-  CardContent
+  CardContent,
+  TextField,
+  InputAdornment
 } from '@mui/material';
-import { Refresh as RefreshIcon } from '@mui/icons-material';
+import { Refresh as RefreshIcon, Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material';
 import PodMetricsTable from './components/PodMetricsTable';
 import NamespaceFilter from './components/NamespaceFilter';
 import { fetchNamespaces, fetchPodMetrics, fetchPodSummary, PodMetrics, PodSummaryResponse } from './services/api';
@@ -29,6 +31,8 @@ function App() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [activeFilter, setActiveFilter] = useState<'high-cpu' | 'low-cpu' | 'high-memory' | 'low-memory' | null>(null);
+  const [searchText, setSearchText] = useState<string>('');
+  const [debouncedSearchText, setDebouncedSearchText] = useState<string>('');
 
   // Fetch namespaces on component mount
   useEffect(() => {
@@ -45,6 +49,15 @@ function App() {
     
     loadNamespaces();
   }, []);
+
+  // Debounce search text
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchText(searchText);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchText]);
 
   // Fetch pod metrics and summary when namespace changes or on initial load
   useEffect(() => {
@@ -123,24 +136,58 @@ function App() {
     }
   };
 
-  // Filter pods based on active filter
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchText(event.target.value);
+  };
+
+  const handleSearchClear = () => {
+    setSearchText('');
+    setDebouncedSearchText('');
+  };
+
+  const matchesSearch = (pod: PodMetrics, searchText: string): boolean => {
+    if (!searchText) return true;
+    
+    const search = searchText.toLowerCase();
+    return (
+      pod.name.toLowerCase().includes(search) ||
+      pod.containerName.toLowerCase().includes(search) ||
+      pod.namespace.toLowerCase().includes(search) ||
+      Object.entries(pod.labels).some(([key, value]) => 
+        key.toLowerCase().includes(search) || 
+        value.toLowerCase().includes(search)
+      )
+    );
+  };
+
+  // Filter pods based on active filter and search text
   const getFilteredPods = () => {
-    if (!activeFilter) {
-      return pods;
+    let filteredPods = pods;
+
+    // Apply search filter
+    if (debouncedSearchText) {
+      filteredPods = filteredPods.filter(pod => matchesSearch(pod, debouncedSearchText));
     }
 
-    switch (activeFilter) {
-      case 'high-cpu':
-        return pods.filter(pod => pod.cpu.requestPercentage > 80);
-      case 'low-cpu':
-        return pods.filter(pod => pod.cpu.requestPercentage < 40 && pod.cpu.requestPercentage > 0);
-      case 'high-memory':
-        return pods.filter(pod => pod.memory.requestPercentage > 80);
-      case 'low-memory':
-        return pods.filter(pod => pod.memory.requestPercentage < 40 && pod.memory.requestPercentage > 0);
-      default:
-        return pods;
+    // Apply metric-based filter
+    if (activeFilter) {
+      switch (activeFilter) {
+        case 'high-cpu':
+          filteredPods = filteredPods.filter(pod => pod.cpu.requestPercentage > 80);
+          break;
+        case 'low-cpu':
+          filteredPods = filteredPods.filter(pod => pod.cpu.requestPercentage < 40 && pod.cpu.requestPercentage > 0);
+          break;
+        case 'high-memory':
+          filteredPods = filteredPods.filter(pod => pod.memory.requestPercentage > 80);
+          break;
+        case 'low-memory':
+          filteredPods = filteredPods.filter(pod => pod.memory.requestPercentage < 40 && pod.memory.requestPercentage > 0);
+          break;
+      }
     }
+
+    return filteredPods;
   };
 
   const filteredPods = getFilteredPods();
@@ -350,7 +397,7 @@ function App() {
         <Paper sx={{ p: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2, flexWrap: 'wrap' }}>
             <Typography variant="h5" component="h2">
-              Pod Metrics
+              Namespace
             </Typography>
             <NamespaceFilter
               namespaces={namespaces}
@@ -358,7 +405,32 @@ function App() {
               onNamespaceChange={handleNamespaceChange}
               loading={loading || refreshing}
             />
-            {activeFilter && (
+            <TextField
+              size="small"
+              placeholder="Search pods, containers, namespaces..."
+              value={searchText}
+              onChange={handleSearchChange}
+              sx={{ minWidth: 300 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: searchText && (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={handleSearchClear}
+                      edge="end"
+                    >
+                      <ClearIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            {(activeFilter || debouncedSearchText) && (
               <Box sx={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -366,11 +438,13 @@ function App() {
                 px: 2,
                 py: 1,
                 borderRadius: 1,
-                backgroundColor: activeFilter.includes('high') ? 'error.light' : 'info.light',
-                color: activeFilter.includes('high') ? 'error.contrastText' : 'info.contrastText'
+                backgroundColor: activeFilter?.includes('high') ? 'error.light' : 'info.light',
+                color: activeFilter?.includes('high') ? 'error.contrastText' : 'info.contrastText'
               }}>
                 <Typography variant="body2" fontWeight="bold">
-                  Filter: {activeFilter.replace('-', ' ').toUpperCase()}
+                  {activeFilter && `Filter: ${activeFilter.replace('-', ' ').toUpperCase()}`}
+                  {activeFilter && debouncedSearchText && ' • '}
+                  {debouncedSearchText && `Search: "${debouncedSearchText}"`}
                 </Typography>
                 <Typography variant="body2">
                   ({filteredPods.length} of {pods.length} pods)
@@ -393,9 +467,11 @@ function App() {
                     : 'No pods found'
                   }
                 </Typography>
-              ) : filteredPods.length === 0 && activeFilter ? (
+              ) : filteredPods.length === 0 && (activeFilter || debouncedSearchText) ? (
                 <Typography variant="body1" sx={{ textAlign: 'center', py: 4 }}>
-                  No pods match the current filter ({activeFilter.replace('-', ' ')})
+                  No pods match the current {activeFilter ? 'filter' : ''}{activeFilter && debouncedSearchText ? ' and search' : ''}{!activeFilter && debouncedSearchText ? 'search' : ''}
+                  {activeFilter && ` (${activeFilter.replace('-', ' ')})`}
+                  {debouncedSearchText && ` "${debouncedSearchText}"`}
                 </Typography>
               ) : (
                 <PodMetricsTable
