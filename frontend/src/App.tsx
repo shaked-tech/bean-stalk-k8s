@@ -83,7 +83,12 @@ function App() {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortBy(property);
-      setSortDirection('asc');
+      // Default to descending for numerical columns to show highest values first
+      const numericalColumns = [
+        'cpuUsage', 'cpuRequest', 'cpuLimit', 'cpuRequestPercentage', 'cpuLimitPercentage',
+        'memoryUsage', 'memoryRequest', 'memoryLimit', 'memoryRequestPercentage', 'memoryLimitPercentage'
+      ];
+      setSortDirection(numericalColumns.includes(property) ? 'desc' : 'asc');
     }
   };
 
