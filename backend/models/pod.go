@@ -136,3 +136,15 @@ type PodTrendSummary struct {
 	RiskLevel               string    `json:"riskLevel"` // low, medium, high
 	NextReviewDate          time.Time `json:"nextReviewDate"`
 }
+
+// PodSummaryResponse provides summary statistics for all pods
+type PodSummaryResponse struct {
+	TotalPods         int     `json:"totalPods"`
+	AverageCPUUsage   float64 `json:"averageCpuUsage"`
+	AverageMemoryUsage float64 `json:"averageMemoryUsage"`
+	HighCPUPods       int     `json:"highCpuPods"`       // >80% usage
+	HighMemoryPods    int     `json:"highMemoryPods"`    // >80% usage
+	LowCPUPods        int     `json:"lowCpuPods"`        // <40% usage
+	LowMemoryPods     int     `json:"lowMemoryPods"`     // <40% usage
+	GeneratedAt       time.Time `json:"generatedAt"`
+}
