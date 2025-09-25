@@ -226,14 +226,18 @@ elif [ "$METRICS_BACKEND" = "vmagent" ]; then
       --namespace pod-metrics-dashboard \
       --create-namespace
 
-    # Deploy vmagent using manifests
-    echo -e "${BLUE}🔧 Deploying vmagent (Metrics collector)${NC}"
+    # Install vmagent using Helm
+    echo -e "${BLUE}🔧 Installing vmagent (Metrics collector)${NC}"
     echo -e "   ${YELLOW}Purpose:${NC} Lightweight Kubernetes metrics scraping agent"
-    echo -e "   ${YELLOW}Config:${NC} k8s/vmagent-deployment.yaml"
-    kubectl apply -f k8s/vmagent-deployment.yaml
+    echo -e "   ${YELLOW}Chart:${NC} vm/victoria-metrics-agent"
+    echo -e "   ${YELLOW}Config:${NC} vmagent-values.yaml"
+    helm upgrade --install vmagent vm/victoria-metrics-agent \
+      --namespace pod-metrics-dashboard \
+      --create-namespace \
+      --values vmagent-values.yaml
 
     echo "⏳ Waiting for vmagent to be ready..."
-    kubectl wait --for=condition=available --timeout=300s deployment/vmagent -n pod-metrics-dashboard || echo "Warning: vmagent may still be starting"
+    kubectl wait --for=condition=available --timeout=300s deployment/vmagent-victoria-metrics-agent -n pod-metrics-dashboard || echo "Warning: vmagent may still be starting"
     kubectl wait --for=condition=available --timeout=300s deployment/kube-state-metrics -n pod-metrics-dashboard || echo "Warning: kube-state-metrics may still be starting"
 
 else
