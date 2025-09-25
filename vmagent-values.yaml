@@ -1,0 +1,239 @@
+# vmagent Configuration for Kubernetes Metrics Collection
+# Lightweight agent to scrape metrics and forward to VictoriaMetrics
+
+image:
+  repository: victoriametrics/vmagent
+  tag: "v1.96.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+# vmagent configuration
+config:
+  global:
+    scrape_interval: 30s
+    evaluation_interval: 30s
+    external_labels:
+      cluster: 'kubernetes'
+      environment: 'pod-metrics-dashboard'
+
+  # Remote write configuration to VictoriaMetrics
+  remote_write:
+    - url: http://victoria-metrics-victoria-metrics-cluster-vminsert.pod-metrics-dashboard.svc.cluster.local:8480/insert/0/prometheus/
+      queue_config:
+        max_samples_per_send: 10000
+        batch_send_deadline: 5s
+        max_shards: 30
+
+  scrape_configs:
+    # Kubernetes API server
+    - job_name: 'kubernetes-apiservers'
+      kubernetes_sd_configs:
+        - role: endpoints
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+          action: keep
+          regex: default;kubernetes;https
+
+    # Kubernetes nodes
+    - job_name: 'kubernetes-nodes'
+      kubernetes_sd_configs:
+        - role: node
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+        - action: labelmap
+          regex: __meta_kubernetes_node_label_(.+)
+        - target_label: __address__
+          replacement: kubernetes.default.svc:443
+        - source_labels: [__meta_kubernetes_node_name]
+          regex: (.+)
+          target_label: __metrics_path__
+          replacement: /api/v1/nodes/${1}/proxy/metrics
+
+    # Kubernetes cadvisor
+    - job_name: 'kubernetes-cadvisor'
+      kubernetes_sd_configs:
+        - role: node
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+        - action: labelmap
+          regex: __meta_kubernetes_node_label_(.+)
+        - target_label: __address__
+          replacement: kubernetes.default.svc:443
+        - source_labels: [__meta_kubernetes_node_name]
+          regex: (.+)
+          target_label: __metrics_path__
+          replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+      metric_relabel_configs:
+        - source_labels: [container]
+          regex: POD
+          action: drop
+        - source_labels: [container]
+          regex: ""
+          action: drop
+
+    # Kubernetes service endpoints
+    - job_name: 'kubernetes-service-endpoints'
+      kubernetes_sd_configs:
+        - role: endpoints
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+        - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+          action: replace
+          target_label: __metrics_path__
+          regex: (.+)
+        - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          target_label: __address__
+        - action: labelmap
+          regex: __meta_kubernetes_service_label_(.+)
+        - source_labels: [__meta_kubernetes_namespace]
+          action: replace
+          target_label: kubernetes_namespace
+        - source_labels: [__meta_kubernetes_service_name]
+          action: replace
+          target_label: kubernetes_name
+
+    # Kubernetes ingresses
+    - job_name: 'kubernetes-ingresses'
+      kubernetes_sd_configs:
+        - role: ingress
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_ingress_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+        - source_labels: [__meta_kubernetes_ingress_annotation_prometheus_io_path]
+          action: replace
+          target_label: __metrics_path__
+          regex: (.+)
+        - source_labels: [__address__, __meta_kubernetes_ingress_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          target_label: __address__
+        - action: labelmap
+          regex: __meta_kubernetes_ingress_label_(.+)
+        - source_labels: [__meta_kubernetes_namespace]
+          action: replace
+          target_label: kubernetes_namespace
+        - source_labels: [__meta_kubernetes_ingress_name]
+          action: replace
+          target_label: kubernetes_name
+
+    # Kubernetes pods
+    - job_name: 'kubernetes-pods'
+      kubernetes_sd_configs:
+        - role: pod
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+          action: replace
+          target_label: __metrics_path__
+          regex: (.+)
+        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          target_label: __address__
+        - action: labelmap
+          regex: __meta_kubernetes_pod_label_(.+)
+        - source_labels: [__meta_kubernetes_namespace]
+          action: replace
+          target_label: kubernetes_namespace
+        - source_labels: [__meta_kubernetes_pod_name]
+          action: replace
+          target_label: kubernetes_pod_name
+
+resources:
+  requests:
+    memory: 200Mi
+    cpu: 100m
+  limits:
+    memory: 500Mi
+    cpu: 500m
+
+# Service account and RBAC
+serviceAccount:
+  create: true
+  name: vmagent
+
+rbac:
+  create: true
+  rules:
+    - apiGroups: [""]
+      resources:
+        - nodes
+        - nodes/proxy
+        - services
+        - endpoints
+        - pods
+      verbs: ["get", "list", "watch"]
+    - apiGroups: ["extensions", "networking.k8s.io"]
+      resources:
+        - ingresses
+      verbs: ["get", "list", "watch"]
+
+# Deployment configuration
+deployment:
+  replicas: 1
+
+service:
+  type: ClusterIP
+  port: 8429
+  targetPort: 8429
+
+# Persistence for temporary data
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  size: 2Gi
+  storageClass: ""
+
+# Security context
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container security context
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+# Volume mounts for temporary storage
+extraVolumeMounts:
+  - name: tmp
+    mountPath: /tmp
+  - name: vmagent-data
+    mountPath: /vmagent-data
+
+extraVolumes:
+  - name: tmp
+    emptyDir: {}
+  - name: vmagent-data
+    emptyDir: {}

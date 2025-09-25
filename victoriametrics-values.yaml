@@ -1,0 +1,195 @@
+# VictoriaMetrics stack configuration for Pod Metrics Dashboard
+# Optimized for Kind cluster with 7-day historical analysis support
+
+victoria-metrics-cluster:
+  enabled: true
+
+# VMSelect - Query component
+vmselect:
+  enabled: true
+  replicaCount: 1
+  
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+  
+  service:
+    type: ClusterIP
+    port: 8481
+    
+  # Enable deduplication and caching
+  extraArgs:
+    dedup.minScrapeInterval: 30s
+    search.maxConcurrentRequests: 8
+    search.maxMemoryPerQuery: 256MB
+
+# VMInsert - Ingestion component  
+vminsert:
+  enabled: true
+  replicaCount: 1
+  
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+  
+  service:
+    type: ClusterIP
+    port: 8480
+    
+  extraArgs:
+    maxLabelsPerTimeseries: "50"
+
+# VMStorage - Storage component
+vmstorage:
+  enabled: true
+  replicaCount: 1
+  
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 200m
+    limits:
+      memory: 2Gi
+      cpu: 1000m
+  
+  # Persistent storage for metrics data
+  persistentVolume:
+    enabled: true
+    size: 15Gi
+    storageClass: standard
+    
+  # Data retention for 7-day analysis (10 days with buffer)
+  extraArgs:
+    retentionPeriod: "10d"
+    
+  service:
+    type: ClusterIP
+    port: 8482
+
+# VMAgent - Metrics collection agent
+vmagent:
+  enabled: true
+  replicaCount: 1
+  
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+  
+  # VMAgent configuration for Kubernetes metrics scraping
+  config:
+    global:
+      scrape_interval: 30s
+      evaluation_interval: 30s
+      
+    # Remote write to VMInsert
+    remote_write:
+      - url: http://vminsert-victoria-metrics:8480/insert/0/prometheus/
+        
+    scrape_configs:
+      # Kubernetes API server metrics
+      - job_name: 'kubernetes-apiservers'
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names: [default]
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: default;kubernetes;https
+        
+      # Kubelet metrics
+      - job_name: 'kubelet'
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/${1}/proxy/metrics
+            
+      # cAdvisor metrics
+      - job_name: 'kubernetes-cadvisor'
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+            
+      # Kube-state-metrics
+      - job_name: 'kube-state-metrics'
+        kubernetes_sd_configs:
+          - role: service
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            action: keep
+            regex: kube-state-metrics
+          - source_labels: [__meta_kubernetes_service_port_name]
+            action: keep
+            regex: http-metrics
+
+# Deploy kube-state-metrics for Kubernetes object metrics
+kube-state-metrics:
+  enabled: true
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 50m
+    limits:
+      memory: 256Mi
+      cpu: 200m
+
+# ServiceMonitor for automatic discovery
+serviceMonitor:
+  enabled: true
+  
+# RBAC permissions
+rbac:
+  create: true
+  
+serviceAccount:
+  create: true
+  
+# Grafana integration (optional - can use existing Grafana)
+grafana:
+  enabled: false  # Set to true if you want a separate Grafana instance for VictoriaMetrics
+  
+# AlertManager for VictoriaMetrics (optional)
+vmalert:
+  enabled: false  # Set to true if you want alerting capabilities

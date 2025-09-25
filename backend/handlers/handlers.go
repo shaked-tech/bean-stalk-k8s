@@ -12,42 +12,71 @@ import (
 	"github.com/bean-stalk-k8s/backend/models"
 )
 
-// Handler contains only the Prometheus client for unified data access
+// Handler contains metrics client for unified data access
 type Handler struct {
-	prometheusClient *k8s.PrometheusClient
+	metricsClient k8s.MetricsClient
 }
 
-// NewHandler creates a new Handler with only Prometheus client for unified data access
+// NewHandler creates a new Handler with configurable metrics backend (Prometheus or vmagent)
 func NewHandler() (*Handler, error) {
-	// Initialize Prometheus client
-	prometheusURL := os.Getenv("PROMETHEUS_URL")
-	if prometheusURL == "" {
-		prometheusURL = "http://prometheus-stack-kube-prom-prometheus.pod-metrics-dashboard.svc.cluster.local:9090"
+	// Get metrics backend configuration
+	backend := os.Getenv("METRICS_BACKEND")
+	if backend == "" {
+		backend = "vmagent" // Default to VictoriaMetrics for better performance
 	}
 
-	prometheusClient, err := k8s.NewPrometheusClient(prometheusURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Prometheus client: %w", err)
+	// Get metrics URL based on backend
+	var metricsURL string
+	switch backend {
+	case "vmagent", "victoriametrics":
+		metricsURL = os.Getenv("VMAGENT_URL")
+		if metricsURL == "" {
+			metricsURL = "http://victoria-metrics-victoria-metrics-cluster-vmselect.pod-metrics-dashboard.svc.cluster.local.:8481/select/0/prometheus"
+		}
+	case "prometheus":
+		metricsURL = os.Getenv("PROMETHEUS_URL")
+		if metricsURL == "" {
+			metricsURL = "http://prometheus-stack-kube-prom-prometheus.pod-metrics-dashboard.svc.cluster.local:9090"
+		}
+	default: // fallback to vmagent
+		metricsURL = os.Getenv("VMAGENT_URL")
+		if metricsURL == "" {
+			metricsURL = "http://victoria-metrics-victoria-metrics-cluster-vmselect.pod-metrics-dashboard.svc.cluster.local.:8481/select/0/prometheus"
+		}
 	}
+
+	// Create metrics client using factory
+	factory := k8s.NewMetricsClientFactory()
+	config := k8s.MetricsClientConfig{
+		Backend: backend,
+		URL:     metricsURL,
+	}
+
+	metricsClient, err := factory.CreateClient(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create %s client: %w", backend, err)
+	}
+
+	log.Printf("INFO: Initialized %s metrics client with URL: %s", metricsClient.GetClientType(), metricsURL)
 
 	return &Handler{
-		prometheusClient: prometheusClient,
+		metricsClient: metricsClient,
 	}, nil
 }
 
-// GetNamespaces returns a list of all namespaces from Prometheus
+// GetNamespaces returns a list of all namespaces from metrics backend
 func (h *Handler) GetNamespaces(w http.ResponseWriter, r *http.Request) {
-	if h.prometheusClient == nil {
-		http.Error(w, "Service unavailable - Prometheus client not initialized", http.StatusServiceUnavailable)
+	if h.metricsClient == nil {
+		http.Error(w, "Service unavailable - metrics client not initialized", http.StatusServiceUnavailable)
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	namespaces, err := h.prometheusClient.GetNamespaces(ctx)
+	namespaces, err := h.metricsClient.GetNamespaces(ctx)
 	if err != nil {
-		log.Printf("Error getting namespaces from Prometheus: %v", err)
+		log.Printf("Error getting namespaces from %s: %v", h.metricsClient.GetClientType(), err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -67,10 +96,10 @@ func (h *Handler) GetNamespaces(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetPodMetrics returns current metrics for all pods from Prometheus
+// GetPodMetrics returns current metrics for all pods from metrics backend
 func (h *Handler) GetPodMetrics(w http.ResponseWriter, r *http.Request) {
-	if h.prometheusClient == nil {
-		http.Error(w, "Service unavailable - Prometheus client not initialized", http.StatusServiceUnavailable)
+	if h.metricsClient == nil {
+		http.Error(w, "Service unavailable - metrics client not initialized", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -80,17 +109,17 @@ func (h *Handler) GetPodMetrics(w http.ResponseWriter, r *http.Request) {
 	// Get namespace from query parameter
 	namespace := r.URL.Query().Get("namespace")
 
-	prometheusMetrics, err := h.prometheusClient.GetCurrentPodMetrics(ctx, namespace)
+	metricsData, err := h.metricsClient.GetCurrentPodMetrics(ctx, namespace)
 	if err != nil {
-		log.Printf("Error getting pod metrics from Prometheus: %v", err)
+		log.Printf("Error getting pod metrics from %s: %v", h.metricsClient.GetClientType(), err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Convert Prometheus metrics to models format
+	// Convert metrics to models format
 	var pods []models.PodMetrics
-	for _, metric := range prometheusMetrics {
-		podMetric := convertPrometheusToModelMetric(metric)
+	for _, metric := range metricsData {
+		podMetric := convertMetricsToModelMetric(metric)
 		pods = append(pods, podMetric)
 	}
 
@@ -111,8 +140,8 @@ func (h *Handler) GetPodMetrics(w http.ResponseWriter, r *http.Request) {
 
 // GetHistoricalAnalysis returns 7-day historical analysis for pods
 func (h *Handler) GetHistoricalAnalysis(w http.ResponseWriter, r *http.Request) {
-	if h.prometheusClient == nil {
-		http.Error(w, "Historical analysis not available - Prometheus client not initialized", http.StatusServiceUnavailable)
+	if h.metricsClient == nil {
+		http.Error(w, "Historical analysis not available - metrics client not initialized", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -125,9 +154,9 @@ func (h *Handler) GetHistoricalAnalysis(w http.ResponseWriter, r *http.Request) 
 		namespace = ".*" // All namespaces
 	}
 
-	historicalData, err := h.prometheusClient.GetHistoricalMetrics(ctx, namespace)
+	historicalData, err := h.metricsClient.GetHistoricalMetrics(ctx, namespace)
 	if err != nil {
-		log.Printf("Error getting historical metrics: %v", err)
+		log.Printf("Error getting historical metrics from %s: %v", h.metricsClient.GetClientType(), err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -206,8 +235,8 @@ func (h *Handler) GetHistoricalAnalysis(w http.ResponseWriter, r *http.Request) 
 
 // GetPodTrends returns trend analysis for a specific pod
 func (h *Handler) GetPodTrends(w http.ResponseWriter, r *http.Request) {
-	if h.prometheusClient == nil {
-		http.Error(w, "Trend analysis not available - Prometheus client not initialized", http.StatusServiceUnavailable)
+	if h.metricsClient == nil {
+		http.Error(w, "Trend analysis not available - metrics client not initialized", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -233,9 +262,9 @@ func (h *Handler) GetPodTrends(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get historical data for the specific pod
-	historicalData, err := h.prometheusClient.GetHistoricalMetrics(ctx, namespace)
+	historicalData, err := h.metricsClient.GetHistoricalMetrics(ctx, namespace)
 	if err != nil {
-		log.Printf("Error getting pod trends: %v", err)
+		log.Printf("Error getting pod trends from %s: %v", h.metricsClient.GetClientType(), err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -328,19 +357,22 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	
-	prometheusStatus := "unavailable"
-	if h.prometheusClient != nil {
-		prometheusStatus = "available"
+	metricsStatus := "unavailable"
+	var clientType string
+	if h.metricsClient != nil {
+		metricsStatus = "available"
+		clientType = h.metricsClient.GetClientType()
 	}
 	
 	response := map[string]interface{}{
 		"status":           "healthy",
 		"timestamp":        time.Now().Format(time.RFC3339),
-		"prometheusClient": prometheusStatus,
+		"metricsClient":    metricsStatus,
+		"metricsBackend":   clientType,
 		"features": map[string]bool{
 			"realTimeMetrics":    true,
-			"historicalAnalysis": h.prometheusClient != nil,
-			"trendAnalysis":      h.prometheusClient != nil,
+			"historicalAnalysis": h.metricsClient != nil,
+			"trendAnalysis":      h.metricsClient != nil,
 		},
 	}
 	
@@ -359,8 +391,8 @@ func convertDataPoints(k8sPoints []k8s.DataPoint) []models.DataPoint {
 	return modelPoints
 }
 
-// Helper function to convert Prometheus PodMetric to models PodMetrics
-func convertPrometheusToModelMetric(metric k8s.PodMetric) models.PodMetrics {
+// Helper function to convert PodMetric to models PodMetrics
+func convertMetricsToModelMetric(metric k8s.PodMetric) models.PodMetrics {
 	// Format values
 	cpuUsageStr := formatCPU(metric.CPUUsage)
 	cpuRequestStr := formatCPU(metric.CPURequest)
@@ -602,8 +634,8 @@ func generatePodTrendSummary(containers []models.HistoricalMetrics) models.PodTr
 
 // GetPodSummary returns summary statistics including low and high usage pods
 func (h *Handler) GetPodSummary(w http.ResponseWriter, r *http.Request) {
-	if h.prometheusClient == nil {
-		http.Error(w, "Service unavailable - Prometheus client not initialized", http.StatusServiceUnavailable)
+	if h.metricsClient == nil {
+		http.Error(w, "Service unavailable - metrics client not initialized", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -613,17 +645,17 @@ func (h *Handler) GetPodSummary(w http.ResponseWriter, r *http.Request) {
 	// Get namespace from query parameter
 	namespace := r.URL.Query().Get("namespace")
 
-	prometheusMetrics, err := h.prometheusClient.GetCurrentPodMetrics(ctx, namespace)
+	metricsData, err := h.metricsClient.GetCurrentPodMetrics(ctx, namespace)
 	if err != nil {
-		log.Printf("Error getting pod metrics from Prometheus: %v", err)
+		log.Printf("Error getting pod metrics from %s: %v", h.metricsClient.GetClientType(), err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Convert Prometheus metrics to models format
+	// Convert metrics to models format
 	var pods []models.PodMetrics
-	for _, metric := range prometheusMetrics {
-		podMetric := convertPrometheusToModelMetric(metric)
+	for _, metric := range metricsData {
+		podMetric := convertMetricsToModelMetric(metric)
 		pods = append(pods, podMetric)
 	}
 

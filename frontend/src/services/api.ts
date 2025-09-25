@@ -40,7 +40,22 @@ export interface PodSummaryResponse {
 const API_BASE_URL = '/api';
 
 // Toggle this to enable mock data for QA testing
-const USE_MOCK_DATA = true;
+// WARNING: NEVER set to true in production deployments!
+const USE_MOCK_DATA = false;
+
+// Production safeguard: Force disable mock data in production environment
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || 
+                     process.env.REACT_APP_ENV === 'production' ||
+                     window.location.hostname !== 'localhost';
+
+const SAFE_USE_MOCK_DATA = USE_MOCK_DATA && !IS_PRODUCTION;
+
+// Log warning if mock data is enabled
+if (SAFE_USE_MOCK_DATA) {
+  console.warn('🔶 MOCK DATA ENABLED - Using mock pod data instead of real metrics');
+} else if (USE_MOCK_DATA && IS_PRODUCTION) {
+  console.error('🚨 MOCK DATA BLOCKED IN PRODUCTION - Using real API instead');
+}
 
 // Mock data for QA testing
 const MOCK_NAMESPACES = ['default', 'kube-system', 'monitoring', 'app-prod', 'app-staging'];
@@ -250,7 +265,7 @@ const MOCK_PODS: PodMetrics[] = [
 ];
 
 export const fetchNamespaces = async (): Promise<string[]> => {
-  if (USE_MOCK_DATA) {
+  if (SAFE_USE_MOCK_DATA) {
     // Simulate API delay for realistic testing
     await new Promise(resolve => setTimeout(resolve, 300));
     return MOCK_NAMESPACES;
@@ -267,7 +282,7 @@ export const fetchNamespaces = async (): Promise<string[]> => {
 };
 
 export const fetchPodMetrics = async (namespace?: string): Promise<PodMetrics[]> => {
-  if (USE_MOCK_DATA) {
+  if (SAFE_USE_MOCK_DATA) {
     // Simulate API delay for realistic testing
     await new Promise(resolve => setTimeout(resolve, 500));
     
@@ -296,7 +311,7 @@ export const fetchPodMetrics = async (namespace?: string): Promise<PodMetrics[]>
 };
 
 export const fetchPodSummary = async (namespace?: string): Promise<PodSummaryResponse | null> => {
-  if (USE_MOCK_DATA) {
+  if (SAFE_USE_MOCK_DATA) {
     // Simulate API delay for realistic testing
     await new Promise(resolve => setTimeout(resolve, 400));
     
