@@ -23,7 +23,9 @@ A comprehensive web application that provides both real-time and historical visu
 - **Risk Assessment**: Categorizes pods by operational risk (low/medium/high)
 
 ### Advanced Monitoring Stack
-- **Prometheus Integration**: Industry-standard time-series metrics collection
+- **Dual Metrics Backend Support**: Choose between Prometheus or VictoriaMetrics (vmagent)
+- **Prometheus Integration**: Industry-standard time-series metrics collection  
+- **VictoriaMetrics Integration**: High-performance, cost-effective alternative to Prometheus
 - **Grafana Dashboards**: Professional monitoring dashboards with historical views
 - **Custom Dashboards**: Pre-built dashboards for pod resource analysis
 - **Alerting Ready**: Foundation for setting up resource usage alerts
@@ -141,6 +143,128 @@ docker push your-registry/pod-metrics-frontend:latest
 kubectl apply -f k8s/
 ```
 
+## 🔧 Metrics Backend Configuration
+
+The application now supports dual metrics backends - choose between **Prometheus** or **VictoriaMetrics** (vmagent) based on your requirements.
+
+### Backend Selection
+
+Configure the metrics backend using environment variables:
+
+```bash
+# Use Prometheus (default)
+export METRICS_BACKEND=prometheus
+export PROMETHEUS_URL=http://prometheus-stack-kube-prom-prometheus.pod-metrics-dashboard.svc.cluster.local:9090
+
+# Use VictoriaMetrics
+export METRICS_BACKEND=vmagent
+export VMAGENT_URL=http://vmselect-victoria-metrics.pod-metrics-dashboard.svc.cluster.local:8481
+```
+
+### Prometheus vs VictoriaMetrics Comparison
+
+| Feature | Prometheus | VictoriaMetrics |
+|---------|------------|-----------------|
+| **Memory Usage** | Higher | Up to 10x lower |
+| **Storage Efficiency** | Standard | Up to 10x compression |
+| **Query Performance** | Good | Faster for large datasets |
+| **PromQL Compatibility** | Native | 100% compatible |
+| **Setup Complexity** | Simple | Slightly more complex |
+| **Maturity** | Very mature | Growing rapidly |
+
+### Deploy with Prometheus (Default)
+
+```bash
+# Deploy with existing Prometheus setup
+./deploy-to-kind.sh
+
+# The script will automatically install:
+# - kube-prometheus-stack (Prometheus + Grafana)
+# - metrics-server
+# - Pod Metrics Dashboard (configured for Prometheus)
+```
+
+### Deploy with VictoriaMetrics
+
+```bash
+# Step 1: Deploy VictoriaMetrics stack
+helm repo add vm https://victoriametrics.github.io/helm-charts/
+helm repo update
+
+# Install VictoriaMetrics cluster
+helm install victoria-metrics vm/victoria-metrics-cluster \
+  --namespace pod-metrics-dashboard \
+  --create-namespace \
+  --values victoriametrics-values.yaml
+
+# Step 2: Deploy metrics-server
+helm install metrics-server metrics-server/metrics-server \
+  --namespace kube-system \
+  --set args="{--cert-dir=/tmp,--secure-port=4443,--kubelet-insecure-tls,--kubelet-preferred-address-types=InternalIP\,ExternalIP\,Hostname}"
+
+# Step 3: Deploy Pod Metrics Dashboard with VictoriaMetrics backend
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/rbac.yaml
+
+# Create ConfigMap with VictoriaMetrics configuration
+kubectl create configmap pod-metrics-config \
+  --namespace pod-metrics-dashboard \
+  --from-literal=METRICS_BACKEND=vmagent \
+  --from-literal=VMAGENT_URL=http://vmselect-victoria-metrics.pod-metrics-dashboard.svc.cluster.local:8481
+
+# Deploy backend with VictoriaMetrics configuration
+kubectl set env deployment/pod-metrics-backend \
+  --namespace pod-metrics-dashboard \
+  METRICS_BACKEND=vmagent \
+  VMAGENT_URL=http://vmselect-victoria-metrics.pod-metrics-dashboard.svc.cluster.local:8481
+
+kubectl apply -f k8s/backend-deployment.yaml
+kubectl apply -f k8s/frontend-deployment.yaml
+```
+
+### Switching Between Backends
+
+You can switch between backends at runtime by updating environment variables:
+
+```bash
+# Switch to VictoriaMetrics
+kubectl set env deployment/pod-metrics-backend \
+  --namespace pod-metrics-dashboard \
+  METRICS_BACKEND=vmagent \
+  VMAGENT_URL=http://vmselect-victoria-metrics.pod-metrics-dashboard.svc.cluster.local:8481
+
+# Switch to Prometheus
+kubectl set env deployment/pod-metrics-backend \
+  --namespace pod-metrics-dashboard \
+  METRICS_BACKEND=prometheus \
+  PROMETHEUS_URL=http://prometheus-stack-kube-prom-prometheus.pod-metrics-dashboard.svc.cluster.local:9090
+
+# Restart the backend to apply changes
+kubectl rollout restart deployment/pod-metrics-backend --namespace pod-metrics-dashboard
+```
+
+### Monitoring Stack Access (VictoriaMetrics)
+
+When using VictoriaMetrics, access the monitoring interfaces:
+
+**VMSelect** (Query interface, similar to Prometheus):
+```bash
+kubectl port-forward -n pod-metrics-dashboard service/vmselect-victoria-metrics 8481:8481
+```
+→ http://localhost:8481/select/0/prometheus/
+
+**vmagent** (Metrics collection status):
+```bash
+kubectl port-forward -n pod-metrics-dashboard service/vmagent-victoria-metrics 8429:8429
+```
+→ http://localhost:8429/
+
+### Configuration Files
+
+- **prometheus-values.yaml**: Prometheus stack configuration
+- **victoriametrics-values.yaml**: VictoriaMetrics stack configuration
+- Both optimized for Kind cluster with 7-day retention
+
 ## 🔧 Development Setup
 
 ### Backend Development
@@ -151,7 +275,12 @@ cd backend
 # Install dependencies
 go mod download
 
-# Run locally (requires kubeconfig)
+# Run locally with Prometheus (default)
+go run main.go
+
+# Run locally with VictoriaMetrics
+export METRICS_BACKEND=vmagent
+export VMAGENT_URL=http://localhost:8481
 go run main.go
 
 # Build

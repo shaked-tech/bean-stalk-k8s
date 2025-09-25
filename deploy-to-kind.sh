@@ -3,6 +3,8 @@
 # Deploy Pod Metrics Dashboard to Kind cluster with Prometheus & Grafana monitoring stack
 set -e
 
+CLUSTER_NAME="metrics"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -49,7 +51,7 @@ fi
 echo -e "${BLUE}🚀 Deploying Pod Metrics Dashboard to Kind (v$VERSION)...${NC}"
 
 # Check if kind cluster exists
-if ! kind get clusters | grep -q "kind"; then
+if ! kind get clusters | grep -q $CLUSTER_NAME; then
     echo "❌ Kind cluster not found. Please create a Kind cluster first:"
     echo "   kind create cluster --config=kind-config.yaml"
     exit 1
@@ -118,21 +120,21 @@ docker images | grep pod-metrics
 # Load images into Kind cluster
 echo -e "${BLUE}📥 Loading images into Kind cluster...${NC}"
 echo -e "${YELLOW}Loading backend image (v$VERSION)...${NC}"
-if ! kind load docker-image pod-metrics-backend:$VERSION; then
+if ! kind load --name $CLUSTER_NAME docker-image pod-metrics-backend:$VERSION; then
     echo -e "${RED}❌ Failed to load versioned backend image into Kind${NC}"
     exit 1
 fi
-if ! kind load docker-image pod-metrics-backend:latest; then
+if ! kind load --name $CLUSTER_NAME docker-image pod-metrics-backend:latest; then
     echo -e "${RED}❌ Failed to load latest backend image into Kind${NC}"
     exit 1
 fi
 
 echo -e "${YELLOW}Loading frontend image (v$VERSION)...${NC}"
-if ! kind load docker-image pod-metrics-frontend:$VERSION; then
+if ! kind load --name $CLUSTER_NAME docker-image pod-metrics-frontend:$VERSION; then
     echo -e "${RED}❌ Failed to load versioned frontend image into Kind${NC}"
     exit 1
 fi  
-if ! kind load docker-image pod-metrics-frontend:latest; then
+if ! kind load --name $CLUSTER_NAME docker-image pod-metrics-frontend:latest; then
     echo -e "${RED}❌ Failed to load latest frontend image into Kind${NC}"
     exit 1
 fi

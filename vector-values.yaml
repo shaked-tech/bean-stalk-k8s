@@ -1,0 +1,158 @@
+# Vector Configuration for Kubernetes Metrics Collection
+# Replaces Prometheus for efficient metrics gathering
+
+image:
+  repository: timberio/vector
+  tag: "0.34.0-debian"
+
+role: Agent
+
+podMonitor:
+  enabled: false
+
+serviceMonitor:
+  enabled: false
+
+resources:
+  requests:
+    memory: 64Mi
+    cpu: 50m
+  limits:
+    memory: 128Mi
+    cpu: 100m
+
+# Vector configuration
+customConfig:
+  data_dir: /vector-data-dir
+  api:
+    enabled: true
+    address: 127.0.0.1:8686
+    playground: false
+
+  sources:
+    # Kubernetes API metrics (replaces kube-state-metrics)
+    kubernetes_logs:
+      type: kubernetes_logs
+      auto_partial_merge: true
+      exclude_paths_glob_patterns:
+        - "**/exclude/**"
+
+    # Host metrics (replaces node-exporter)
+    host_metrics:
+      type: host_metrics
+      collectors:
+        - cpu
+        - disk
+        - filesystem
+        - memory
+        - network
+      filesystem:
+        devices:
+          excludes: ["binfmt_misc"]
+        filesystems:
+          excludes: ["binfmt_misc"]
+        mountpoints:
+          excludes: ["*/proc/sys/fs/binfmt_misc"]
+
+    # Container metrics via Docker API
+    docker_metrics:
+      type: docker_metrics
+      docker:
+        unix: "/var/run/docker.sock"
+
+    # Kubernetes API Server metrics
+    kubernetes_api:
+      type: prometheus_scrape
+      endpoints: ["https://kubernetes.default.svc.cluster.local:443/metrics"]
+      scrape_interval_secs: 30
+      auth:
+        strategy: bearer
+        token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      tls:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+
+  transforms:
+    # Parse and enrich container metrics
+    enrich_container_metrics:
+      type: remap
+      inputs: ["docker_metrics"]
+      source: |
+        # Add Kubernetes labels and metadata
+        .kubernetes.pod_name = .container_name
+        .kubernetes.namespace = "default" # Will be enriched by Kubernetes API
+        
+        # Convert Docker metrics to Prometheus-compatible format
+        if exists(.cpu_usage_percent) {
+          .container_cpu_usage_seconds_total = .cpu_usage_percent / 100
+        }
+        
+        if exists(.memory_usage_bytes) {
+          .container_memory_working_set_bytes = .memory_usage_bytes
+        }
+
+    # Format host metrics for VictoriaMetrics
+    format_host_metrics:
+      type: remap
+      inputs: ["host_metrics"]
+      source: |
+        # Convert to Prometheus format
+        .instance = get_hostname!()
+        .job = "node-exporter"
+
+  sinks:
+    # Send metrics to vmagent
+    victoria_metrics:
+      type: prometheus_remote_write
+      inputs: ["enrich_container_metrics", "format_host_metrics", "kubernetes_api"]
+      endpoint: "http://vmagent.pod-metrics-dashboard.svc.cluster.local:8429/api/v1/write"
+      compression: gzip
+      batch:
+        max_events: 1000
+        timeout_secs: 30
+
+# DaemonSet configuration for node-level metrics
+kind: DaemonSet
+
+# Service account permissions
+rbac:
+  enabled: true
+
+serviceAccount:
+  create: true
+
+# Volume mounts for host metrics
+volumeMounts:
+  - name: proc
+    mountPath: /host/proc
+    readOnly: true
+  - name: sys  
+    mountPath: /host/sys
+    readOnly: true
+  - name: docker-sock
+    mountPath: /var/run/docker.sock
+    readOnly: true
+
+volumes:
+  - name: proc
+    hostPath:
+      path: /proc
+  - name: sys
+    hostPath:
+      path: /sys
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
+
+# Security context
+securityContext:
+  privileged: false
+  runAsUser: 0
+  capabilities:
+    add: ["SYS_PTRACE"]
+
+# Node selector for all nodes
+nodeSelector: {}
+
+tolerations:
+  - operator: Exists
+    effect: NoSchedule
