@@ -267,6 +267,61 @@ kubectl port-forward -n pod-metrics-dashboard service/vmagent-victoria-metrics 8
 
 ## 🔧 Development Setup
 
+### Frontend Development
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start development server
+npm start
+
+# Build for production
+npm run build
+```
+
+#### Mock Data for Development & Testing
+
+The frontend supports mock data for development and testing purposes, controlled by environment variables for security:
+
+**Enable Mock Data (Development/Testing)**
+
+Create or modify `frontend/.env`:
+```bash
+# Enable mock data for development and testing
+REACT_APP_USE_MOCK_DATA=true
+```
+
+Or set directly when running:
+```bash
+# Enable mock data temporarily
+REACT_APP_USE_MOCK_DATA=true npm start
+
+# Disable mock data (production behavior)
+REACT_APP_USE_MOCK_DATA=false npm start
+```
+
+**Mock Data Features:**
+- **12 Realistic Pods** across 5 namespaces (`default`, `kube-system`, `monitoring`, `app-prod`, `app-staging`)
+- **Varied Resource Scenarios**: High CPU/Memory pods, low usage pods, normal usage pods
+- **Full Functionality**: Supports all filtering, searching, sorting, and dark mode features
+- **Realistic Components**: nginx, redis, postgres, rabbitmq, fluentd, prometheus, etc.
+- **API Simulation**: Includes realistic delays and namespace filtering
+
+**Production Safety:**
+- **Secure by Default**: Defaults to `false` if environment variable not set
+- **Multiple Safeguards**: Automatically disabled in production environments
+- **Environment Detection**: Checks `NODE_ENV`, `REACT_APP_ENV`, and hostname
+- **Console Logging**: Clear warnings when mock data is active
+
+**Mock Data Breakdown:**
+- High CPU Pods (>80%): 3 pods
+- High Memory Pods (>80%): 2 pods  
+- Low CPU/Memory Pods (<40%): 4 pods
+- Normal Usage Pods: 3 pods
+
 ### Backend Development
 
 ```bash
@@ -285,21 +340,6 @@ go run main.go
 
 # Build
 go build -o bin/main main.go
-```
-
-### Frontend Development
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm start
-
-# Build for production
-npm run build
 ```
 
 ## 📡 API Endpoints
