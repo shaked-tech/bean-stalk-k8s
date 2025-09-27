@@ -5,8 +5,8 @@ import asyncio
 load_dotenv()
 
 async def main():
-    llm = ChatAnthropic(model='claude-3-5-sonnet-20241022', temperature=0.0)
-    task = "Find the number 1 post on Show HN"
+    llm = ChatAnthropic(model='claude-sonnet-4-20250514', temperature=0.0)
+    task = "Find the number 1 post on Show HN, make sure to add a link"
     agent = Agent(task=task, llm=llm)
     await agent.run()
 
