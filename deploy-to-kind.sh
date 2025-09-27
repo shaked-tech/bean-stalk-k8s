@@ -5,8 +5,8 @@ set -e
 
 CLUSTER_NAME="metrics"
 
-# Configuration: Choose metrics backend (prometheus or vmagent)
-METRICS_BACKEND="${METRICS_BACKEND:-prometheus}"  # Default to prometheus
+# Configuration: Choose metrics backend (victoriametrics or prometheus)
+METRICS_BACKEND="${METRICS_BACKEND:-victoriametrics}"  # Default to victoriametrics
 
 # Colors for output
 RED='\033[0;31m'
@@ -157,7 +157,7 @@ echo -e "${BLUE}📋 Adding required Helm repositories...${NC}"
 if [ "$METRICS_BACKEND" = "prometheus" ]; then
     echo -e "${YELLOW}Adding prometheus-community repository for Prometheus/Grafana stack...${NC}"
     helm repo add prometheus-community https://prometheus-community.github.io/helm-charts >/dev/null 2>&1 || true
-elif [ "$METRICS_BACKEND" = "vmagent" ]; then
+elif [ "$METRICS_BACKEND" = "victoriametrics" ]; then
     echo -e "${YELLOW}Adding VictoriaMetrics repository for vmagent/VictoriaMetrics stack...${NC}"
     helm repo add vm https://victoriametrics.github.io/helm-charts >/dev/null 2>&1 || true
     echo -e "${YELLOW}Adding prometheus-community repository for kube-state-metrics...${NC}"
@@ -200,18 +200,17 @@ if [ "$METRICS_BACKEND" = "prometheus" ]; then
     kubectl wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=prometheus -n pod-metrics-dashboard || echo "Warning: Prometheus may still be starting"
     kubectl wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=grafana -n pod-metrics-dashboard || echo "Warning: Grafana may still be starting"
 
-elif [ "$METRICS_BACKEND" = "vmagent" ]; then
+elif [ "$METRICS_BACKEND" = "victoriametrics" ]; then
     echo -e "${BLUE}📈 Installing VictoriaMetrics Stack (vmagent + VictoriaMetrics)${NC}"
     echo -e "   ${YELLOW}Purpose:${NC} Lightweight metrics collection with high-performance storage"
     echo -e "   ${YELLOW}Chart:${NC} vm/victoria-metrics-cluster"
     echo -e "   ${YELLOW}Includes:${NC} vminsert, vmselect, vmstorage"
-    echo -e "   ${YELLOW}Config:${NC} victoriametrics-values.yaml"
+    echo -e "   ${YELLOW}Config:${NC} Using default values"
     
-    # Install VictoriaMetrics Cluster
+    # Install VictoriaMetrics Cluster (without custom values file since we deleted it)
     helm upgrade --install victoria-metrics vm/victoria-metrics-cluster \
       --namespace pod-metrics-dashboard \
-      --create-namespace \
-      --values victoriametrics-values.yaml
+      --create-namespace
 
     echo "⏳ Waiting for VictoriaMetrics cluster to be ready..."
     kubectl wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=vminsert -n pod-metrics-dashboard || echo "Warning: vminsert may still be starting"
@@ -231,18 +230,30 @@ elif [ "$METRICS_BACKEND" = "vmagent" ]; then
     echo -e "   ${YELLOW}Purpose:${NC} Lightweight Kubernetes metrics scraping agent"
     echo -e "   ${YELLOW}Chart:${NC} vm/victoria-metrics-agent"
     echo -e "   ${YELLOW}Config:${NC} vmagent-values.yaml"
-    helm upgrade --install vmagent vm/victoria-metrics-agent \
+    
+    if helm upgrade --install vmagent vm/victoria-metrics-agent \
       --namespace pod-metrics-dashboard \
       --create-namespace \
-      --values vmagent-values.yaml
-
-    echo "⏳ Waiting for vmagent to be ready..."
-    kubectl wait --for=condition=available --timeout=300s deployment/vmagent-victoria-metrics-agent -n pod-metrics-dashboard || echo "Warning: vmagent may still be starting"
+      --values vmagent-values.yaml; then
+        
+        echo "⏳ Waiting for vmagent to be ready..."
+        kubectl wait --for=condition=available --timeout=300s deployment/vmagent-victoria-metrics-agent -n pod-metrics-dashboard || echo "Warning: vmagent may still be starting"
+    else
+        echo -e "${YELLOW}⚠️  vmagent installation failed. Trying without custom values...${NC}"
+        # Try with inline configuration
+        helm upgrade --install vmagent vm/victoria-metrics-agent \
+          --namespace pod-metrics-dashboard \
+          --create-namespace \
+          --set remoteWrite[0].url=http://victoria-metrics-victoria-metrics-cluster-vminsert.pod-metrics-dashboard.svc.cluster.local:8480/insert/0/prometheus/
+        
+        echo "⏳ Waiting for vmagent to be ready..."
+        kubectl wait --for=condition=available --timeout=300s deployment/vmagent-victoria-metrics-agent -n pod-metrics-dashboard || echo "Warning: vmagent may still be starting"
+    fi
     kubectl wait --for=condition=available --timeout=300s deployment/kube-state-metrics -n pod-metrics-dashboard || echo "Warning: kube-state-metrics may still be starting"
 
 else
     echo -e "${RED}❌ Unsupported metrics backend: $METRICS_BACKEND${NC}"
-    echo -e "${YELLOW}Supported backends: prometheus, vmagent${NC}"
+    echo -e "${YELLOW}Supported backends: prometheus, victoriametrics${NC}"
     exit 1
 fi
 
@@ -282,18 +293,10 @@ sed "s|pod-metrics-backend:latest|pod-metrics-backend:$VERSION|g" k8s/backend-de
 sed "s|pod-metrics-frontend:latest|pod-metrics-frontend:$VERSION|g" k8s/frontend-deployment.yaml > /tmp/frontend-deployment-versioned.yaml
 
 # Configure backend environment variables based on metrics backend
-if [ "$METRICS_BACKEND" = "vmagent" ]; then
-    echo -e "${BLUE}🔧 Configuring backend for vmagent + VictoriaMetrics...${NC}"
-    # Add vmagent environment variables to backend deployment
-    sed -i '/env:/a\
-          - name: METRICS_BACKEND\
-            value: "vmagent"\
-          - name: VMAGENT_URL\
-            value: "http://victoria-metrics-victoria-metrics-cluster-vmselect.pod-metrics-dashboard.svc.cluster.local:8481/select/0/prometheus"' \
-    /tmp/backend-deployment-versioned.yaml
+if [ "$METRICS_BACKEND" = "victoriametrics" ]; then
+    echo -e "${BLUE}🔧 Backend configured for VictoriaMetrics (using pre-configured values)${NC}"
 else
-    echo -e "${BLUE}🔧 Configuring backend for Prometheus...${NC}"
-    # Backend defaults to prometheus configuration (no changes needed)
+    echo -e "${BLUE}🔧 Backend configured for Prometheus (using pre-configured values)${NC}"
 fi
 
 # Deploy the application
@@ -336,9 +339,9 @@ if [ "$METRICS_BACKEND" = "prometheus" ]; then
     echo ""
     echo "2. Open your browser to: http://localhost:3001"
     echo "   Username: admin"
-    echo "   Password: pod-metrics-admin"
+    echo "   Password: admin"
     echo ""
-elif [ "$METRICS_BACKEND" = "vmagent" ]; then
+elif [ "$METRICS_BACKEND" = "victoriametrics" ]; then
     echo -e "${BLUE}📈 VictoriaMetrics Query Interface:${NC}"
     echo "1. Port forward the vmselect service:"
     echo "   kubectl port-forward -n pod-metrics-dashboard service/victoria-metrics-victoria-metrics-cluster-vmselect 8481:8481"
@@ -366,7 +369,7 @@ echo "   # OR explicitly:"
 echo "   METRICS_BACKEND=prometheus ./deploy-to-kind.sh"
 echo ""
 echo -e "${YELLOW}To deploy with vmagent + VictoriaMetrics:${NC}"
-echo "   METRICS_BACKEND=vmagent ./deploy-to-kind.sh"
+echo "   METRICS_BACKEND=victoriametrics ./deploy-to-kind.sh"
 echo ""
 echo -e "${BLUE}🔧 Monitoring Stack Troubleshooting:${NC}"
 echo -e "${YELLOW}If Prometheus/Grafana are not accessible:${NC}"

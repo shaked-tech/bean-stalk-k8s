@@ -88,7 +88,7 @@ helm repo update
 3. **Grafana** - For advanced dashboard visualization
    - Included in kube-prometheus-stack
    - Pre-configured with custom pod metrics dashboards
-   - Admin credentials: admin/pod-metrics-admin
+   - Admin credentials: admin/admin
 
 ## 🚀 Quick Start
 
@@ -334,7 +334,7 @@ kubectl port-forward -n pod-metrics-dashboard service/prometheus-stack-grafana 3
 ```
 → http://localhost:3001
 - **Username**: admin
-- **Password**: pod-metrics-admin
+- **Password**: admin
 
 **Prometheus** (Raw metrics and query interface):
 ```bash
