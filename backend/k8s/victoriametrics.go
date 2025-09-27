@@ -13,20 +13,20 @@ import (
 	"time"
 )
 
-// VMAgentClient wraps the VictoriaMetrics API client
-type VMAgentClient struct {
+// VictoriaMetricsClient wraps the VictoriaMetrics API client
+type VictoriaMetricsClient struct {
 	baseURL string
 	client  *http.Client
 }
 
-// NewVMAgentClient creates a new VictoriaMetrics client
-func NewVMAgentClient(vmSelectURL string) (*VMAgentClient, error) {
+// NewVictoriaMetricsClient creates a new VictoriaMetrics client
+func NewVictoriaMetricsClient(vmSelectURL string) (*VictoriaMetricsClient, error) {
 	// Ensure the URL ends with the API path
 	if !strings.HasSuffix(vmSelectURL, "/") {
 		vmSelectURL += "/"
 	}
 	
-	return &VMAgentClient{
+	return &VictoriaMetricsClient{
 		baseURL: vmSelectURL,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
@@ -35,14 +35,14 @@ func NewVMAgentClient(vmSelectURL string) (*VMAgentClient, error) {
 }
 
 // Close closes the VictoriaMetrics client connection
-func (vm *VMAgentClient) Close() error {
+func (vm *VictoriaMetricsClient) Close() error {
 	// HTTP client doesn't require explicit closing
 	return nil
 }
 
 // GetClientType returns the type of metrics client
-func (vm *VMAgentClient) GetClientType() string {
-	return "vmagent"
+func (vm *VictoriaMetricsClient) GetClientType() string {
+	return "victoriametrics"
 }
 
 // VMResponse represents VictoriaMetrics API response structure
@@ -65,7 +65,7 @@ type VMResult struct {
 }
 
 // GetCurrentPodMetrics retrieves current pod metrics from VictoriaMetrics
-func (vm *VMAgentClient) GetCurrentPodMetrics(ctx context.Context, namespace string) ([]PodMetric, error) {
+func (vm *VictoriaMetricsClient) GetCurrentPodMetrics(ctx context.Context, namespace string) ([]PodMetric, error) {
 	var pods []PodMetric
 	
 	// Build namespace filter
@@ -172,7 +172,7 @@ func (vm *VMAgentClient) GetCurrentPodMetrics(ctx context.Context, namespace str
 }
 
 // addResourceLimitsAndRequests adds resource requests and limits to pod metrics
-func (vm *VMAgentClient) addResourceLimitsAndRequests(ctx context.Context, podMetrics map[string]*PodMetric, namespace string) error {
+func (vm *VictoriaMetricsClient) addResourceLimitsAndRequests(ctx context.Context, podMetrics map[string]*PodMetric, namespace string) error {
 	// Build namespace filter
 	namespaceFilter := ""
 	if namespace != "" {
@@ -299,7 +299,7 @@ func (vm *VMAgentClient) addResourceLimitsAndRequests(ctx context.Context, podMe
 }
 
 // GetHistoricalMetrics retrieves and analyzes 7-day historical metrics for pods
-func (vm *VMAgentClient) GetHistoricalMetrics(ctx context.Context, namespace string) ([]HistoricalMetrics, error) {
+func (vm *VictoriaMetricsClient) GetHistoricalMetrics(ctx context.Context, namespace string) ([]HistoricalMetrics, error) {
 	now := time.Now()
 	sevenDaysAgo := now.Add(-7 * 24 * time.Hour)
 	
@@ -326,7 +326,7 @@ func (vm *VMAgentClient) GetHistoricalMetrics(ctx context.Context, namespace str
 }
 
 // getActivePods retrieves pods that were active during the specified time range
-func (vm *VMAgentClient) getActivePods(ctx context.Context, namespace string, start, end time.Time) ([]PodInfo, error) {
+func (vm *VictoriaMetricsClient) getActivePods(ctx context.Context, namespace string, start, end time.Time) ([]PodInfo, error) {
 	query := `group by (pod, namespace, container) (
 		rate(container_cpu_usage_seconds_total{namespace=~"` + namespace + `", container!="POD", container!=""}[5m])
 	)`
@@ -371,7 +371,7 @@ func (vm *VMAgentClient) getActivePods(ctx context.Context, namespace string, st
 }
 
 // getHistoricalMetricsForContainer retrieves and analyzes historical metrics for a specific container
-func (vm *VMAgentClient) getHistoricalMetricsForContainer(ctx context.Context, pod, namespace, container string, start, end time.Time) (HistoricalMetrics, error) {
+func (vm *VictoriaMetricsClient) getHistoricalMetricsForContainer(ctx context.Context, pod, namespace, container string, start, end time.Time) (HistoricalMetrics, error) {
 	// Query CPU usage over time
 	cpuUsage, err := vm.queryRangeMetric(ctx, 
 		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{namespace="%s", pod="%s", container="%s"}[5m])`, 
@@ -441,7 +441,7 @@ func (vm *VMAgentClient) getHistoricalMetricsForContainer(ctx context.Context, p
 }
 
 // GetNamespaces retrieves all namespaces from VictoriaMetrics
-func (vm *VMAgentClient) GetNamespaces(ctx context.Context) ([]string, error) {
+func (vm *VictoriaMetricsClient) GetNamespaces(ctx context.Context) ([]string, error) {
 	// Use container metrics to get namespaces since we don't have kube-state-metrics
 	query := `group by (namespace) (container_cpu_usage_seconds_total{container!="POD", container!=""})`
 	
@@ -465,7 +465,7 @@ func (vm *VMAgentClient) GetNamespaces(ctx context.Context) ([]string, error) {
 }
 
 // query executes a single query against VictoriaMetrics
-func (vm *VMAgentClient) query(ctx context.Context, query string) (*VMResponse, error) {
+func (vm *VictoriaMetricsClient) query(ctx context.Context, query string) (*VMResponse, error) {
 	params := url.Values{}
 	params.Set("query", query)
 	params.Set("time", strconv.FormatInt(time.Now().Unix(), 10))
@@ -506,7 +506,7 @@ func (vm *VMAgentClient) query(ctx context.Context, query string) (*VMResponse, 
 }
 
 // queryRangeMetric executes a range query and returns data points
-func (vm *VMAgentClient) queryRangeMetric(ctx context.Context, query string, start, end time.Time) ([]DataPoint, error) {
+func (vm *VictoriaMetricsClient) queryRangeMetric(ctx context.Context, query string, start, end time.Time) ([]DataPoint, error) {
 	step := 5 * time.Minute // 5-minute resolution
 	
 	params := url.Values{}
@@ -575,7 +575,7 @@ func (vm *VMAgentClient) queryRangeMetric(ctx context.Context, query string, sta
 // They are duplicated here for the VMAgentClient to maintain independence
 
 // analyzeResourceData performs statistical analysis on resource data
-func (vm *VMAgentClient) analyzeResourceData(usage, requests, limits []DataPoint) HistoricalResourceData {
+func (vm *VictoriaMetricsClient) analyzeResourceData(usage, requests, limits []DataPoint) HistoricalResourceData {
 	if len(usage) == 0 {
 		return HistoricalResourceData{
 			Usage:    usage,
@@ -625,7 +625,7 @@ func (vm *VMAgentClient) analyzeResourceData(usage, requests, limits []DataPoint
 }
 
 // calculatePercentile calculates the specified percentile of a dataset
-func (vm *VMAgentClient) calculatePercentile(values []float64, percentile float64) float64 {
+func (vm *VictoriaMetricsClient) calculatePercentile(values []float64, percentile float64) float64 {
 	if len(values) == 0 {
 		return 0
 	}
@@ -654,7 +654,7 @@ func (vm *VMAgentClient) calculatePercentile(values []float64, percentile float6
 }
 
 // calculateTrend determines if the usage is increasing, decreasing, or stable
-func (vm *VMAgentClient) calculateTrend(usage []DataPoint) string {
+func (vm *VictoriaMetricsClient) calculateTrend(usage []DataPoint) string {
 	if len(usage) < 10 {
 		return "insufficient_data"
 	}
@@ -686,7 +686,7 @@ func (vm *VMAgentClient) calculateTrend(usage []DataPoint) string {
 }
 
 // generateUsageAnalysis creates usage analysis and recommendations
-func (vm *VMAgentClient) generateUsageAnalysis(cpu, memory HistoricalResourceData) UsageAnalysis {
+func (vm *VictoriaMetricsClient) generateUsageAnalysis(cpu, memory HistoricalResourceData) UsageAnalysis {
 	analysis := UsageAnalysis{
 		Recommendations: []string{},
 	}
@@ -722,7 +722,7 @@ func (vm *VMAgentClient) generateUsageAnalysis(cpu, memory HistoricalResourceDat
 }
 
 // getAverageValue calculates average of data points
-func (vm *VMAgentClient) getAverageValue(points []DataPoint) float64 {
+func (vm *VictoriaMetricsClient) getAverageValue(points []DataPoint) float64 {
 	if len(points) == 0 {
 		return 0
 	}
@@ -735,7 +735,7 @@ func (vm *VMAgentClient) getAverageValue(points []DataPoint) float64 {
 }
 
 // generateWasteAnalysis identifies resource waste
-func (vm *VMAgentClient) generateWasteAnalysis(cpu, memory HistoricalResourceData, cpuEff, memEff float64) ResourceWasteAnalysis {
+func (vm *VictoriaMetricsClient) generateWasteAnalysis(cpu, memory HistoricalResourceData, cpuEff, memEff float64) ResourceWasteAnalysis {
 	waste := ResourceWasteAnalysis{}
 	
 	// CPU analysis
@@ -758,7 +758,7 @@ func (vm *VMAgentClient) generateWasteAnalysis(cpu, memory HistoricalResourceDat
 }
 
 // generateRecommendations creates actionable recommendations
-func (vm *VMAgentClient) generateRecommendations(cpu, memory HistoricalResourceData, cpuEff, memEff float64) []string {
+func (vm *VictoriaMetricsClient) generateRecommendations(cpu, memory HistoricalResourceData, cpuEff, memEff float64) []string {
 	var recommendations []string
 	
 	if cpuEff > 0 && cpuEff < 30 {
@@ -789,7 +789,7 @@ func (vm *VMAgentClient) generateRecommendations(cpu, memory HistoricalResourceD
 }
 
 // calculateVariation calculates coefficient of variation
-func (vm *VMAgentClient) calculateVariation(points []DataPoint) float64 {
+func (vm *VictoriaMetricsClient) calculateVariation(points []DataPoint) float64 {
 	if len(points) < 2 {
 		return 0
 	}

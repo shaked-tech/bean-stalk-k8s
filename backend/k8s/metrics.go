@@ -41,8 +41,8 @@ func (f *MetricsClientFactory) CreateClient(config MetricsClientConfig) (Metrics
 	switch config.Backend {
 	case "prometheus":
 		return NewPrometheusClient(config.URL)
-	case "vmagent", "victoriametrics":
-		return NewVMAgentClient(config.URL)
+	case "victoriametrics":
+		return NewVictoriaMetricsClient(config.URL)
 	default:
 		// Default to Prometheus for backward compatibility
 		return NewPrometheusClient(config.URL)

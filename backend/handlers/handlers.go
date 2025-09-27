@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 	"github.com/bean-stalk-k8s/backend/k8s"
 	"github.com/bean-stalk-k8s/backend/models"
@@ -17,33 +18,36 @@ type Handler struct {
 	metricsClient k8s.MetricsClient
 }
 
-// NewHandler creates a new Handler with configurable metrics backend (Prometheus or vmagent)
+// NewHandler creates a new Handler with configurable metrics backend (Prometheus or VictoriaMetrics)
 func NewHandler() (*Handler, error) {
 	// Get metrics backend configuration
-	backend := os.Getenv("METRICS_BACKEND")
-	if backend == "" {
-		backend = "vmagent" // Default to VictoriaMetrics for better performance
-	}
-
-	// Get metrics URL based on backend
+	backend := getEnvWithDefault("METRICS_BACKEND", "victoriametrics")
+	
+	// Get metrics URL based on backend with support for new and legacy env vars
 	var metricsURL string
 	switch backend {
-	case "vmagent", "victoriametrics":
-		metricsURL = os.Getenv("VMAGENT_URL")
-		if metricsURL == "" {
-			metricsURL = "http://victoria-metrics-victoria-metrics-cluster-vmselect.pod-metrics-dashboard.svc.cluster.local.:8481/select/0/prometheus"
-		}
+	case "victoriametrics":
+		// Try new env var first, then legacy, then default
+		metricsURL = getEnvWithDefault("METRICS_VICTORIAMETRICS_URL", 
+			getEnvWithDefault("VICTORIAMETRICS_URL", 
+				"http://victoria-metrics-victoria-metrics-cluster-vmselect.pod-metrics-dashboard.svc.cluster.local:8481/select/0/prometheus"))
 	case "prometheus":
-		metricsURL = os.Getenv("PROMETHEUS_URL")
-		if metricsURL == "" {
-			metricsURL = "http://prometheus-stack-kube-prom-prometheus.pod-metrics-dashboard.svc.cluster.local:9090"
-		}
-	default: // fallback to vmagent
-		metricsURL = os.Getenv("VMAGENT_URL")
-		if metricsURL == "" {
-			metricsURL = "http://victoria-metrics-victoria-metrics-cluster-vmselect.pod-metrics-dashboard.svc.cluster.local.:8481/select/0/prometheus"
-		}
+		// Try new env var first, then legacy, then default  
+		metricsURL = getEnvWithDefault("METRICS_PROMETHEUS_URL",
+			getEnvWithDefault("PROMETHEUS_URL",
+				"http://prometheus-stack-kube-prom-prometheus.pod-metrics-dashboard.svc.cluster.local:9090"))
+	default: // fallback to victoriametrics
+		metricsURL = getEnvWithDefault("METRICS_VICTORIAMETRICS_URL",
+			getEnvWithDefault("VICTORIAMETRICS_URL",
+				"http://victoria-metrics-victoria-metrics-cluster-vmselect.pod-metrics-dashboard.svc.cluster.local:8481/select/0/prometheus"))
 	}
+
+	// Read advanced configuration from environment variables
+	timeout := getEnvWithDefault("METRICS_TIMEOUT", "30s")
+	retryAttempts := getEnvIntWithDefault("METRICS_RETRY_ATTEMPTS", 3)
+	enableCaching := getEnvBoolWithDefault("METRICS_ENABLE_CACHING", false)
+	enableHistorical := getEnvBoolWithDefault("METRICS_ENABLE_HISTORICAL", true)
+	enableTrend := getEnvBoolWithDefault("METRICS_ENABLE_TREND", true)
 
 	// Create metrics client using factory
 	factory := k8s.NewMetricsClientFactory()
@@ -57,7 +61,12 @@ func NewHandler() (*Handler, error) {
 		return nil, fmt.Errorf("failed to create %s client: %w", backend, err)
 	}
 
-	log.Printf("INFO: Initialized %s metrics client with URL: %s", metricsClient.GetClientType(), metricsURL)
+	log.Printf("INFO: Metrics configuration loaded:")
+	log.Printf("  - Backend: %s", backend)
+	log.Printf("  - URL: %s", metricsURL)
+	log.Printf("  - Timeout: %s", timeout)
+	log.Printf("  - Retry Attempts: %d", retryAttempts)
+	log.Printf("  - Features: Caching=%v, Historical=%v, Trend=%v", enableCaching, enableHistorical, enableTrend)
 
 	return &Handler{
 		metricsClient: metricsClient,
@@ -714,6 +723,38 @@ func (h *Handler) GetPodSummary(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+// Environment variable helper functions
+
+// getEnvWithDefault returns the environment variable value or the default if not set
+func getEnvWithDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+// getEnvIntWithDefault returns the environment variable as an integer or the default if not set/invalid
+func getEnvIntWithDefault(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+		log.Printf("WARN: Invalid integer value for %s: %s, using default: %d", key, value, defaultValue)
+	}
+	return defaultValue
+}
+
+// getEnvBoolWithDefault returns the environment variable as a boolean or the default if not set/invalid
+func getEnvBoolWithDefault(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if boolValue, err := strconv.ParseBool(value); err == nil {
+			return boolValue
+		}
+		log.Printf("WARN: Invalid boolean value for %s: %s, using default: %v", key, value, defaultValue)
+	}
+	return defaultValue
 }
 
 // EnableCORS is a middleware that sets CORS headers
