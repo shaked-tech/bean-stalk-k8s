@@ -16,7 +16,7 @@ class PodMetricsPage:
         self.loading_spinner = page.locator('.MuiCircularProgress-root')
         
         # Background elements to check theme
-        self.main_container = page.locator('body, .MuiContainer-root').first()
+        self.main_container = page.locator('body, .MuiContainer-root').first
         self.paper_elements = page.locator('.MuiPaper-root')
         
     async def navigate(self, url: str = "http://localhost:3000"):
