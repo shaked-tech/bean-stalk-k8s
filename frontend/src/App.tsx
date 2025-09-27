@@ -15,12 +15,20 @@ import {
   TextField,
   InputAdornment
 } from '@mui/material';
-import { Refresh as RefreshIcon, Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material';
+import { 
+  Refresh as RefreshIcon, 
+  Search as SearchIcon, 
+  Clear as ClearIcon,
+  Brightness4 as DarkModeIcon,
+  Brightness7 as LightModeIcon 
+} from '@mui/icons-material';
 import PodMetricsTable from './components/PodMetricsTable';
 import NamespaceFilter from './components/NamespaceFilter';
+import { useTheme } from './theme/ThemeContext';
 import { fetchNamespaces, fetchPodMetrics, fetchPodSummary, PodMetrics, PodSummaryResponse } from './services/api';
 
 function App() {
+  const { mode, toggleTheme } = useTheme();
   const [namespaces, setNamespaces] = useState<string[]>([]);
   const [selectedNamespace, setSelectedNamespace] = useState<string>('');
   const [pods, setPods] = useState<PodMetrics[]>([]);
@@ -221,8 +229,17 @@ function App() {
               color="inherit" 
               onClick={handleRefresh}
               disabled={refreshing}
+              sx={{ mr: 1 }}
             >
               <RefreshIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={`Switch to ${mode === 'dark' ? 'light' : 'dark'} mode`}>
+            <IconButton 
+              color="inherit" 
+              onClick={toggleTheme}
+            >
+              {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
             </IconButton>
           </Tooltip>
         </Toolbar>
