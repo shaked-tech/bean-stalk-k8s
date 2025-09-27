@@ -32,6 +32,17 @@ func NewPrometheusClient(prometheusURL string) (*PrometheusClient, error) {
 	}, nil
 }
 
+// Close closes the Prometheus client connection
+func (p *PrometheusClient) Close() error {
+	// Prometheus client doesn't require explicit closing
+	return nil
+}
+
+// GetClientType returns the type of metrics client
+func (p *PrometheusClient) GetClientType() string {
+	return "prometheus"
+}
+
 // HistoricalMetrics represents metrics data over time
 type HistoricalMetrics struct {
 	PodName       string                 `json:"podName"`

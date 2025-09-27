@@ -38,7 +38,7 @@ grafana:
   enabled: true
   
   # Admin credentials
-  adminPassword: "pod-metrics-admin"
+  adminPassword: "admin"
   
   # Use emptyDir for Kind cluster (development setup)
   persistence:

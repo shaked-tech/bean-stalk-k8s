@@ -25,6 +25,29 @@ spec:
         env:
         - name: PORT
           value: "8080"
+        # Metrics Backend Configuration
+        - name: METRICS_BACKEND
+          value: "victoriametrics"  # Options: "prometheus", "victoriametrics"
+        - name: METRICS_PROMETHEUS_URL
+          value: "http://prometheus-stack-kube-prom-prometheus.pod-metrics-dashboard.svc.cluster.local:9090"
+        - name: METRICS_VICTORIAMETRICS_URL
+          value: "http://victoria-metrics-victoria-metrics-cluster-vmselect.pod-metrics-dashboard.svc.cluster.local:8481/select/0/prometheus"
+        # Legacy environment variables for backward compatibility
+        - name: PROMETHEUS_URL
+          value: "$(METRICS_PROMETHEUS_URL)"
+        - name: VICTORIAMETRICS_URL
+          value: "$(METRICS_VICTORIAMETRICS_URL)"
+        # Advanced Configuration (Optional)
+        - name: METRICS_TIMEOUT
+          value: "30s"
+        - name: METRICS_RETRY_ATTEMPTS
+          value: "3"
+        - name: METRICS_ENABLE_CACHING
+          value: "false"
+        - name: METRICS_ENABLE_HISTORICAL
+          value: "true"
+        - name: METRICS_ENABLE_TREND
+          value: "true"
         resources:
           requests:
             memory: "128Mi"
