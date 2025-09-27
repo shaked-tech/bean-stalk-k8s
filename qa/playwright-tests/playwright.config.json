@@ -1,0 +1,54 @@
+{
+  "testDir": "tests",
+  "timeout": 30000,
+  "expect": {
+    "timeout": 5000
+  },
+  "fullyParallel": true,
+  "forbidOnly": true,
+  "retries": 2,
+  "workers": 4,
+  "reporter": [
+    ["html", {"open": "never", "outputFolder": "playwright-report"}],
+    ["json", {"outputFile": "test-results.json"}],
+    ["list"]
+  ],
+  "use": {
+    "baseURL": "http://localhost:3000",
+    "trace": "on-first-retry",
+    "screenshot": "only-on-failure",
+    "video": "retain-on-failure",
+    "headless": true,
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "projects": [
+    {
+      "name": "chromium",
+      "use": {
+        "browserName": "chromium",
+        "channel": "chrome"
+      }
+    },
+    {
+      "name": "firefox",
+      "use": {
+        "browserName": "firefox"
+      }
+    },
+    {
+      "name": "webkit",
+      "use": {
+        "browserName": "webkit"
+      }
+    }
+  ],
+  "webServer": {
+    "command": "cd ../frontend && npm start",
+    "port": 3000,
+    "reuseExistingServer": true,
+    "timeout": 120000
+  }
+}
