@@ -1,0 +1,3 @@
+[console_scripts]
+browser-use = browser_use.cli:main
+browseruse = browser_use.cli:main

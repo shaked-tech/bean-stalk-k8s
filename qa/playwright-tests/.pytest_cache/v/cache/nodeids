@@ -1,0 +1,6 @@
+[
+  "test_demo.py::test_homepage_loads[chromium]",
+  "test_demo.py::test_table_headers_clickable[chromium]",
+  "test_demo.py::test_theme_toggle_exists[chromium]",
+  "tests/test_dark_mode.py::TestDarkMode::test_theme_toggle_button_exists"
+]
