@@ -10,7 +10,8 @@ import {
   LinearProgress,
   Typography,
   Box,
-  Tooltip
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import { PodMetrics } from '../services/api';
 
@@ -27,9 +28,109 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
   sortDirection, 
   onSortChange 
 }) => {
+  const theme = useTheme();
+  
+  // Responsive breakpoints for column visibility
+  const isExtraSmall = useMediaQuery(theme.breakpoints.down('sm')); // < 600px
+  const isSmall = useMediaQuery(theme.breakpoints.down('md')); // < 900px
+  const isMedium = useMediaQuery(theme.breakpoints.down('lg')); // < 1200px
+  const isLarge = useMediaQuery(theme.breakpoints.down('xl')); // < 1536px
+
   const handleSort = (property: string) => {
     onSortChange(property);
   };
+
+  // Define column visibility based on screen size/zoom level
+  const getVisibleColumns = () => {
+    if (isExtraSmall) {
+      // Very small screens: only essential columns
+      return {
+        name: true,
+        containerName: false,
+        namespace: true,
+        cpuUsage: false,
+        cpuRequest: false,
+        cpuLimit: false,
+        cpuRequestPercentage: true,
+        cpuLimitPercentage: false,
+        memoryUsage: false,
+        memoryRequest: false,
+        memoryLimit: false,
+        memoryRequestPercentage: true,
+        memoryLimitPercentage: false
+      };
+    } else if (isSmall) {
+      // Small screens: essential + some important columns
+      return {
+        name: true,
+        containerName: false,
+        namespace: true,
+        cpuUsage: false,
+        cpuRequest: false,
+        cpuLimit: false,
+        cpuRequestPercentage: true,
+        cpuLimitPercentage: false,
+        memoryUsage: false,
+        memoryRequest: false,
+        memoryLimit: false,
+        memoryRequestPercentage: true,
+        memoryLimitPercentage: false
+      };
+    } else if (isMedium) {
+      // Medium screens: hide limit percentages and some raw values
+      return {
+        name: true,
+        containerName: true,
+        namespace: true,
+        cpuUsage: true,
+        cpuRequest: false,
+        cpuLimit: false,
+        cpuRequestPercentage: true,
+        cpuLimitPercentage: false,
+        memoryUsage: true,
+        memoryRequest: false,
+        memoryLimit: false,
+        memoryRequestPercentage: true,
+        memoryLimitPercentage: false
+      };
+    } else if (isLarge) {
+      // Large screens: hide limit percentages
+      return {
+        name: true,
+        containerName: true,
+        namespace: true,
+        cpuUsage: true,
+        cpuRequest: true,
+        cpuLimit: true,
+        cpuRequestPercentage: true,
+        cpuLimitPercentage: false,
+        memoryUsage: true,
+        memoryRequest: true,
+        memoryLimit: true,
+        memoryRequestPercentage: true,
+        memoryLimitPercentage: false
+      };
+    } else {
+      // Extra large screens: show all columns
+      return {
+        name: true,
+        containerName: true,
+        namespace: true,
+        cpuUsage: true,
+        cpuRequest: true,
+        cpuLimit: true,
+        cpuRequestPercentage: true,
+        cpuLimitPercentage: true,
+        memoryUsage: true,
+        memoryRequest: true,
+        memoryLimit: true,
+        memoryRequestPercentage: true,
+        memoryLimitPercentage: true
+      };
+    }
+  };
+
+  const visibleColumns = getVisibleColumns();
 
   const sortedPods = [...pods].sort((a, b) => {
     let comparison = 0;
@@ -128,126 +229,192 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
     );
   };
 
-  const getSortDirection = (property: string) => {
-    return sortBy === property ? sortDirection : 'asc';
-  };
-
   const renderSortArrow = (property: string) => {
     if (sortBy !== property) return null;
     return sortDirection === 'asc' ? ' ↑' : ' ↓';
   };
 
   return (
-    <TableContainer component={Paper} sx={{ maxHeight: 600 }}>
+    <TableContainer component={Paper}>
       <Table stickyHeader aria-label="sticky table">
         <TableHead>
           <TableRow>
-            <TableCell 
-              onClick={() => handleSort('name')}
-              sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              Pod Name{renderSortArrow('name')}
-            </TableCell>
-            <TableCell 
-              onClick={() => handleSort('containerName')}
-              sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              Container{renderSortArrow('containerName')}
-            </TableCell>
-            <TableCell 
-              onClick={() => handleSort('namespace')}
-              sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              Namespace{renderSortArrow('namespace')}
-            </TableCell>
-            <TableCell 
-              onClick={() => handleSort('cpuUsage')}
-              sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              CPU Usage{renderSortArrow('cpuUsage')}
-            </TableCell>
-            <TableCell 
-              onClick={() => handleSort('cpuRequest')}
-              sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              CPU Request{renderSortArrow('cpuRequest')}
-            </TableCell>
-            <TableCell 
-              onClick={() => handleSort('cpuLimit')}
-              sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              CPU Limit{renderSortArrow('cpuLimit')}
-            </TableCell>
-            <TableCell 
-              onClick={() => handleSort('cpuRequestPercentage')}
-              sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              CPU Request %{renderSortArrow('cpuRequestPercentage')}
-            </TableCell>
-            <TableCell 
-              onClick={() => handleSort('cpuLimitPercentage')}
-              sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              CPU Limit %{renderSortArrow('cpuLimitPercentage')}
-            </TableCell>
-            <TableCell 
-              onClick={() => handleSort('memoryUsage')}
-              sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              Memory Usage{renderSortArrow('memoryUsage')}
-            </TableCell>
-            <TableCell 
-              onClick={() => handleSort('memoryRequest')}
-              sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              Memory Request{renderSortArrow('memoryRequest')}
-            </TableCell>
-            <TableCell 
-              onClick={() => handleSort('memoryLimit')}
-              sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              Memory Limit{renderSortArrow('memoryLimit')}
-            </TableCell>
-            <TableCell 
-              onClick={() => handleSort('memoryRequestPercentage')}
-              sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              Memory Request %{renderSortArrow('memoryRequestPercentage')}
-            </TableCell>
-            <TableCell 
-              onClick={() => handleSort('memoryLimitPercentage')}
-              sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              Memory Limit %{renderSortArrow('memoryLimitPercentage')}
-            </TableCell>
+            {visibleColumns.name && (
+              <TableCell 
+                onClick={() => handleSort('name')}
+                sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 150 }}
+              >
+                Pod Name{renderSortArrow('name')}
+              </TableCell>
+            )}
+            {visibleColumns.containerName && (
+              <TableCell 
+                onClick={() => handleSort('containerName')}
+                sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 120 }}
+              >
+                Container{renderSortArrow('containerName')}
+              </TableCell>
+            )}
+            {visibleColumns.namespace && (
+              <TableCell 
+                onClick={() => handleSort('namespace')}
+                sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 100 }}
+              >
+                Namespace{renderSortArrow('namespace')}
+              </TableCell>
+            )}
+            {visibleColumns.cpuUsage && (
+              <TableCell 
+                onClick={() => handleSort('cpuUsage')}
+                sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 100 }}
+              >
+                CPU Usage{renderSortArrow('cpuUsage')}
+              </TableCell>
+            )}
+            {visibleColumns.cpuRequest && (
+              <TableCell 
+                onClick={() => handleSort('cpuRequest')}
+                sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 110 }}
+              >
+                CPU Request{renderSortArrow('cpuRequest')}
+              </TableCell>
+            )}
+            {visibleColumns.cpuLimit && (
+              <TableCell 
+                onClick={() => handleSort('cpuLimit')}
+                sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 100 }}
+              >
+                CPU Limit{renderSortArrow('cpuLimit')}
+              </TableCell>
+            )}
+            {visibleColumns.cpuRequestPercentage && (
+              <TableCell 
+                onClick={() => handleSort('cpuRequestPercentage')}
+                sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 140 }}
+              >
+                CPU Request %{renderSortArrow('cpuRequestPercentage')}
+              </TableCell>
+            )}
+            {visibleColumns.cpuLimitPercentage && (
+              <TableCell 
+                onClick={() => handleSort('cpuLimitPercentage')}
+                sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 130 }}
+              >
+                CPU Limit %{renderSortArrow('cpuLimitPercentage')}
+              </TableCell>
+            )}
+            {visibleColumns.memoryUsage && (
+              <TableCell 
+                onClick={() => handleSort('memoryUsage')}
+                sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 120 }}
+              >
+                Memory Usage{renderSortArrow('memoryUsage')}
+              </TableCell>
+            )}
+            {visibleColumns.memoryRequest && (
+              <TableCell 
+                onClick={() => handleSort('memoryRequest')}
+                sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 130 }}
+              >
+                Memory Request{renderSortArrow('memoryRequest')}
+              </TableCell>
+            )}
+            {visibleColumns.memoryLimit && (
+              <TableCell 
+                onClick={() => handleSort('memoryLimit')}
+                sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 120 }}
+              >
+                Memory Limit{renderSortArrow('memoryLimit')}
+              </TableCell>
+            )}
+            {visibleColumns.memoryRequestPercentage && (
+              <TableCell 
+                onClick={() => handleSort('memoryRequestPercentage')}
+                sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 160 }}
+              >
+                Memory Request %{renderSortArrow('memoryRequestPercentage')}
+              </TableCell>
+            )}
+            {visibleColumns.memoryLimitPercentage && (
+              <TableCell 
+                onClick={() => handleSort('memoryLimitPercentage')}
+                sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 150 }}
+              >
+                Memory Limit %{renderSortArrow('memoryLimitPercentage')}
+              </TableCell>
+            )}
           </TableRow>
         </TableHead>
         <TableBody>
           {sortedPods.map((pod, index) => (
             <TableRow key={`${pod.namespace}-${pod.name}-${pod.containerName}-${index}`} hover>
-              <TableCell>
-                <Typography>{pod.name}</Typography>
-              </TableCell>
-              <TableCell>{pod.containerName}</TableCell>
-              <TableCell>{pod.namespace}</TableCell>
-              <TableCell>{pod.cpu.usage}</TableCell>
-              <TableCell>{pod.cpu.requestValue > 0 ? pod.cpu.request : '-'}</TableCell>
-              <TableCell>{pod.cpu.limitValue > 0 ? pod.cpu.limit : '-'}</TableCell>
-              <TableCell>
-                {renderProgressBar(pod.cpu.requestPercentage, pod.cpu.requestPercentage > 80 ? 'error' : 'primary', pod.cpu.requestValue > 0)}
-              </TableCell>
-              <TableCell>
-                {renderProgressBar(pod.cpu.limitPercentage, pod.cpu.limitPercentage > 80 ? 'error' : 'info', pod.cpu.limitValue > 0)}
-              </TableCell>
-              <TableCell>{pod.memory.usage}</TableCell>
-              <TableCell>{pod.memory.requestValue > 0 ? pod.memory.request : '-'}</TableCell>
-              <TableCell>{pod.memory.limitValue > 0 ? pod.memory.limit : '-'}</TableCell>
-              <TableCell>
-                {renderProgressBar(pod.memory.requestPercentage, pod.memory.requestPercentage > 80 ? 'error' : 'primary', pod.memory.requestValue > 0)}
-              </TableCell>
-              <TableCell>
-                {renderProgressBar(pod.memory.limitPercentage, pod.memory.limitPercentage > 80 ? 'error' : 'info', pod.memory.limitValue > 0)}
-              </TableCell>
+              {visibleColumns.name && (
+                <TableCell sx={{ minWidth: 150 }}>
+                  <Typography noWrap title={pod.name}>
+                    {pod.name}
+                  </Typography>
+                </TableCell>
+              )}
+              {visibleColumns.containerName && (
+                <TableCell sx={{ minWidth: 120 }}>
+                  <Typography noWrap title={pod.containerName}>
+                    {pod.containerName}
+                  </Typography>
+                </TableCell>
+              )}
+              {visibleColumns.namespace && (
+                <TableCell sx={{ minWidth: 100 }}>
+                  <Typography noWrap title={pod.namespace}>
+                    {pod.namespace}
+                  </Typography>
+                </TableCell>
+              )}
+              {visibleColumns.cpuUsage && (
+                <TableCell sx={{ minWidth: 100 }}>{pod.cpu.usage}</TableCell>
+              )}
+              {visibleColumns.cpuRequest && (
+                <TableCell sx={{ minWidth: 110 }}>
+                  {pod.cpu.requestValue > 0 ? pod.cpu.request : '-'}
+                </TableCell>
+              )}
+              {visibleColumns.cpuLimit && (
+                <TableCell sx={{ minWidth: 100 }}>
+                  {pod.cpu.limitValue > 0 ? pod.cpu.limit : '-'}
+                </TableCell>
+              )}
+              {visibleColumns.cpuRequestPercentage && (
+                <TableCell sx={{ minWidth: 140 }}>
+                  {renderProgressBar(pod.cpu.requestPercentage, pod.cpu.requestPercentage > 80 ? 'error' : 'primary', pod.cpu.requestValue > 0)}
+                </TableCell>
+              )}
+              {visibleColumns.cpuLimitPercentage && (
+                <TableCell sx={{ minWidth: 130 }}>
+                  {renderProgressBar(pod.cpu.limitPercentage, pod.cpu.limitPercentage > 80 ? 'error' : 'info', pod.cpu.limitValue > 0)}
+                </TableCell>
+              )}
+              {visibleColumns.memoryUsage && (
+                <TableCell sx={{ minWidth: 120 }}>{pod.memory.usage}</TableCell>
+              )}
+              {visibleColumns.memoryRequest && (
+                <TableCell sx={{ minWidth: 130 }}>
+                  {pod.memory.requestValue > 0 ? pod.memory.request : '-'}
+                </TableCell>
+              )}
+              {visibleColumns.memoryLimit && (
+                <TableCell sx={{ minWidth: 120 }}>
+                  {pod.memory.limitValue > 0 ? pod.memory.limit : '-'}
+                </TableCell>
+              )}
+              {visibleColumns.memoryRequestPercentage && (
+                <TableCell sx={{ minWidth: 160 }}>
+                  {renderProgressBar(pod.memory.requestPercentage, pod.memory.requestPercentage > 80 ? 'error' : 'primary', pod.memory.requestValue > 0)}
+                </TableCell>
+              )}
+              {visibleColumns.memoryLimitPercentage && (
+                <TableCell sx={{ minWidth: 150 }}>
+                  {renderProgressBar(pod.memory.limitPercentage, pod.memory.limitPercentage > 80 ? 'error' : 'info', pod.memory.limitValue > 0)}
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>
