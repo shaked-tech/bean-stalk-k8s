@@ -2,7 +2,7 @@
   text-align: center;
 }
 
-/* Make all div containers wider */
+/* Make all div containers wider - dark mode compatible */
 body > div,
 body > div > div,
 body > div > div > div {
@@ -23,6 +23,7 @@ body > div > div > div {
   max-width: none !important;
 }
 
+/* Dark mode compatible logo styling */
 .App-logo {
   height: 40vmin;
   pointer-events: none;
@@ -34,19 +35,24 @@ body > div > div > div {
   }
 }
 
+/* Remove hardcoded background colors - let MUI theme handle it */
 .App-header {
-  background-color: #282c34;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   font-size: calc(10px + 2vmin);
-  color: white;
 }
 
+/* Theme-aware link styling - will inherit from MUI theme */
 .App-link {
-  color: #61dafb;
+  color: inherit;
+  opacity: 0.8;
+}
+
+.App-link:hover {
+  opacity: 1;
 }
 
 @keyframes App-logo-spin {
@@ -56,4 +62,27 @@ body > div > div > div {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Ensure smooth transitions for theme changes */
+* {
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out !important;
+}
+
+/* Fix any potential scrollbar styling for dark mode */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.5);
 }

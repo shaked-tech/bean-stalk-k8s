@@ -39,9 +39,10 @@ export interface PodSummaryResponse {
 
 const API_BASE_URL = '/api';
 
-// Toggle this to enable mock data for QA testing
-// WARNING: NEVER set to true in production deployments!
-const USE_MOCK_DATA = false;
+// Enable mock data via environment variable for QA testing
+// Set REACT_APP_USE_MOCK_DATA=true to enable mock data
+// WARNING: NEVER set this environment variable in production deployments!
+const USE_MOCK_DATA = process.env.REACT_APP_USE_MOCK_DATA === 'true';
 
 // Production safeguard: Force disable mock data in production environment
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || 
