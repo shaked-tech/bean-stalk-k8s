@@ -157,15 +157,31 @@ function App() {
     if (!searchText) return true;
     
     const search = searchText.toLowerCase();
-    return (
+    
+    // Check basic pod properties
+    if (
       pod.name.toLowerCase().includes(search) ||
       pod.containerName.toLowerCase().includes(search) ||
-      pod.namespace.toLowerCase().includes(search) ||
-      Object.entries(pod.labels).some(([key, value]) => 
-        key.toLowerCase().includes(search) || 
-        value.toLowerCase().includes(search)
-      )
-    );
+      pod.namespace.toLowerCase().includes(search)
+    ) {
+      return true;
+    }
+
+    // Safely check labels - handle null, undefined, or non-object cases
+    if (pod.labels && typeof pod.labels === 'object') {
+      try {
+        return Object.entries(pod.labels).some(([key, value]) => 
+          key.toLowerCase().includes(search) || 
+          value.toLowerCase().includes(search)
+        );
+      } catch (error) {
+        // If Object.entries fails for any reason, just skip label matching
+        console.warn('Error processing pod labels for search:', error);
+        return false;
+      }
+    }
+
+    return false;
   };
 
   // Filter pods based on active filter and search text

@@ -13,8 +13,8 @@ RUN npm ci --silent --no-audit --no-fund
 # Copy source code
 COPY . .
 
-# Build the app
-RUN npm run build
+# Build the app with optimizations
+RUN npm run build-fast
 
 # Clean up npm cache to reduce image size
 RUN npm cache clean --force
