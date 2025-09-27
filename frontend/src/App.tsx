@@ -13,7 +13,9 @@ import {
   Card,
   CardContent,
   TextField,
-  InputAdornment
+  InputAdornment,
+  useTheme as useMuiTheme,
+  useMediaQuery
 } from '@mui/material';
 import { 
   Refresh as RefreshIcon, 
@@ -29,6 +31,8 @@ import { fetchNamespaces, fetchPodMetrics, fetchPodSummary, PodMetrics, PodSumma
 
 function App() {
   const { mode, toggleTheme } = useTheme();
+  const muiTheme = useMuiTheme();
+  const isSmallScreen = useMediaQuery(muiTheme.breakpoints.down('sm'));
   const [namespaces, setNamespaces] = useState<string[]>([]);
   const [selectedNamespace, setSelectedNamespace] = useState<string>('');
   const [pods, setPods] = useState<PodMetrics[]>([]);
@@ -261,7 +265,15 @@ function App() {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth={false} sx={{ width: '95%', maxWidth: 'none' }}>
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          width: { xs: '98%', sm: '96%', md: '95%', lg: '94%', xl: '92%' }, 
+          maxWidth: 'none',
+          px: { xs: 1, sm: 2, md: 2 },
+          minHeight: 'calc(100vh - 64px)', // Account for AppBar height
+        }}
+      >
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
@@ -271,11 +283,17 @@ function App() {
         {/* Summary Cards */}
         <Box sx={{ 
           display: 'flex', 
-          gap: 2, 
+          gap: { xs: 1, sm: 1.5, md: 2 }, 
           mb: 3,
-          flexWrap: 'wrap'
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'stretch'
         }}>
-          <Card sx={{ minWidth: 200, flex: '1 1 200px' }}>
+          <Card sx={{ 
+            minWidth: { xs: 140, sm: 160, md: 180, lg: 200 }, 
+            flex: { xs: '1 1 calc(50% - 4px)', sm: '1 1 calc(33.33% - 8px)', md: '1 1 200px' },
+            maxWidth: { xs: 'calc(50% - 4px)', sm: 'calc(33.33% - 8px)', md: 'none' }
+          }}>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
                 Total Pods
@@ -285,30 +303,39 @@ function App() {
               </Typography>
             </CardContent>
           </Card>
-          <Card sx={{ minWidth: 200, flex: '1 1 200px' }}>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+          <Card sx={{ 
+            minWidth: { xs: 140, sm: 160, md: 180, lg: 200 }, 
+            flex: { xs: '1 1 calc(50% - 4px)', sm: '1 1 calc(33.33% - 8px)', md: '1 1 200px' },
+            maxWidth: { xs: 'calc(50% - 4px)', sm: 'calc(33.33% - 8px)', md: 'none' }
+          }}>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+              <Typography color="textSecondary" gutterBottom variant="body2">
                 Avg CPU Usage
               </Typography>
-              <Typography variant="h4">
+              <Typography variant={isSmallScreen ? "h5" : "h4"}>
                 {Math.round(averageCpuUsage)}%
               </Typography>
             </CardContent>
           </Card>
-          <Card sx={{ minWidth: 200, flex: '1 1 200px' }}>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+          <Card sx={{ 
+            minWidth: { xs: 140, sm: 160, md: 180, lg: 200 }, 
+            flex: { xs: '1 1 calc(50% - 4px)', sm: '1 1 calc(33.33% - 8px)', md: '1 1 200px' },
+            maxWidth: { xs: 'calc(50% - 4px)', sm: 'calc(33.33% - 8px)', md: 'none' }
+          }}>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+              <Typography color="textSecondary" gutterBottom variant="body2">
                 Avg Memory Usage
               </Typography>
-              <Typography variant="h4">
+              <Typography variant={isSmallScreen ? "h5" : "h4"}>
                 {Math.round(averageMemoryUsage)}%
               </Typography>
             </CardContent>
           </Card>
           <Card 
             sx={{ 
-              minWidth: 200, 
-              flex: '1 1 200px',
+              minWidth: { xs: 140, sm: 160, md: 180, lg: 200 }, 
+              flex: { xs: '1 1 calc(50% - 4px)', sm: '1 1 calc(33.33% - 8px)', md: '1 1 200px' },
+              maxWidth: { xs: 'calc(50% - 4px)', sm: 'calc(33.33% - 8px)', md: 'none' },
               cursor: 'pointer',
               transition: 'all 0.2s',
               '&:hover': {
@@ -326,19 +353,20 @@ function App() {
             }}
             onClick={() => handleFilterClick('high-cpu')}
           >
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+              <Typography color="textSecondary" gutterBottom variant="body2">
                 High CPU Pods
               </Typography>
-              <Typography variant="h4" color={highCpuPods > 0 ? "error" : "inherit"}>
+              <Typography variant={isSmallScreen ? "h5" : "h4"} color={highCpuPods > 0 ? "error" : "inherit"}>
                 {highCpuPods}
               </Typography>
             </CardContent>
           </Card>
           <Card 
             sx={{ 
-              minWidth: 200, 
-              flex: '1 1 200px',
+              minWidth: { xs: 140, sm: 160, md: 180, lg: 200 }, 
+              flex: { xs: '1 1 calc(50% - 4px)', sm: '1 1 calc(33.33% - 8px)', md: '1 1 200px' },
+              maxWidth: { xs: 'calc(50% - 4px)', sm: 'calc(33.33% - 8px)', md: 'none' },
               cursor: 'pointer',
               transition: 'all 0.2s',
               '&:hover': {
@@ -356,19 +384,20 @@ function App() {
             }}
             onClick={() => handleFilterClick('high-memory')}
           >
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+              <Typography color="textSecondary" gutterBottom variant="body2">
                 High Memory Pods
               </Typography>
-              <Typography variant="h4" color={highMemoryPods > 0 ? "error" : "inherit"}>
+              <Typography variant={isSmallScreen ? "h5" : "h4"} color={highMemoryPods > 0 ? "error" : "inherit"}>
                 {highMemoryPods}
               </Typography>
             </CardContent>
           </Card>
           <Card 
             sx={{ 
-              minWidth: 200, 
-              flex: '1 1 200px',
+              minWidth: { xs: 140, sm: 160, md: 180, lg: 200 }, 
+              flex: { xs: '1 1 calc(50% - 4px)', sm: '1 1 calc(33.33% - 8px)', md: '1 1 200px' },
+              maxWidth: { xs: 'calc(50% - 4px)', sm: 'calc(33.33% - 8px)', md: 'none' },
               cursor: 'pointer',
               transition: 'all 0.2s',
               '&:hover': {
@@ -386,19 +415,20 @@ function App() {
             }}
             onClick={() => handleFilterClick('low-cpu')}
           >
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+              <Typography color="textSecondary" gutterBottom variant="body2">
                 Low CPU Pods
               </Typography>
-              <Typography variant="h4" color={lowCpuPods > 0 ? "info.main" : "inherit"}>
+              <Typography variant={isSmallScreen ? "h5" : "h4"} color={lowCpuPods > 0 ? "info.main" : "inherit"}>
                 {lowCpuPods}
               </Typography>
             </CardContent>
           </Card>
           <Card 
             sx={{ 
-              minWidth: 200, 
-              flex: '1 1 200px',
+              minWidth: { xs: 140, sm: 160, md: 180, lg: 200 }, 
+              flex: { xs: '1 1 calc(50% - 4px)', sm: '1 1 calc(33.33% - 8px)', md: '1 1 200px' },
+              maxWidth: { xs: 'calc(50% - 4px)', sm: 'calc(33.33% - 8px)', md: 'none' },
               cursor: 'pointer',
               transition: 'all 0.2s',
               '&:hover': {
@@ -416,19 +446,28 @@ function App() {
             }}
             onClick={() => handleFilterClick('low-memory')}
           >
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+              <Typography color="textSecondary" gutterBottom variant="body2">
                 Low Memory Pods
               </Typography>
-              <Typography variant="h4" color={lowMemoryPods > 0 ? "info.main" : "inherit"}>
+              <Typography variant={isSmallScreen ? "h5" : "h4"} color={lowMemoryPods > 0 ? "info.main" : "inherit"}>
                 {lowMemoryPods}
               </Typography>
             </CardContent>
           </Card>
         </Box>
 
-        <Paper sx={{ p: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2, flexWrap: 'wrap' }}>
+        <Paper sx={{ 
+          p: { xs: 1, sm: 1.5, md: 2 },
+          borderRadius: { xs: 1, sm: 2 }
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            mb: 2, 
+            gap: { xs: 1, sm: 1.5, md: 2 }, 
+            flexWrap: 'wrap' 
+          }}>
             <Typography variant="h5" component="h2">
               Namespace
             </Typography>
@@ -443,7 +482,11 @@ function App() {
               placeholder="Search pods, containers, namespaces..."
               value={searchText}
               onChange={handleSearchChange}
-              sx={{ minWidth: 300 }}
+              sx={{ 
+                minWidth: { xs: 250, sm: 280, md: 300 },
+                maxWidth: { xs: '100%', sm: 400 },
+                flex: { xs: '1 1 auto', md: '0 0 auto' }
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -468,11 +511,13 @@ function App() {
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: 1,
-                px: 2,
+                px: { xs: 1, sm: 2 },
                 py: 1,
                 borderRadius: 1,
                 backgroundColor: activeFilter?.includes('high') ? 'error.light' : 'info.light',
-                color: activeFilter?.includes('high') ? 'error.contrastText' : 'info.contrastText'
+                color: activeFilter?.includes('high') ? 'error.contrastText' : 'info.contrastText',
+                flexShrink: 0,
+                maxWidth: '100%'
               }}>
                 <Typography variant="body2" fontWeight="bold">
                   {activeFilter && `Filter: ${activeFilter.replace('-', ' ').toUpperCase()}`}
