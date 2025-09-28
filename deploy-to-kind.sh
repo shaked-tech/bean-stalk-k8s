@@ -182,6 +182,10 @@ helm upgrade --install metrics-server metrics-server/metrics-server \
   --create-namespace \
   --set "args={--secure-port=10250,--kubelet-insecure-tls}"
 
+# Create monitoring namespace for all monitoring components
+echo -e "${BLUE}🔧 Creating monitoring namespace...${NC}"
+kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+
 # Install monitoring stack based on configured backend
 echo ""
 if [ "$METRICS_BACKEND" = "prometheus" ]; then
@@ -191,14 +195,14 @@ if [ "$METRICS_BACKEND" = "prometheus" ]; then
     echo -e "   ${YELLOW}Includes:${NC} Prometheus, Grafana, AlertManager, Node Exporters"
     echo -e "   ${YELLOW}Storage:${NC} 15Gi for 7-day retention"
     echo -e "   ${YELLOW}Config:${NC} prometheus-values.yaml"
+    echo -e "   ${YELLOW}Namespace:${NC} monitoring"
     helm upgrade --install prometheus-stack prometheus-community/kube-prometheus-stack \
-      --namespace pod-metrics-dashboard \
-      --create-namespace \
+      --namespace monitoring \
       --values prometheus-values.yaml
 
     echo "⏳ Waiting for Prometheus stack to be ready..."
-    kubectl wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=prometheus -n pod-metrics-dashboard || echo "Warning: Prometheus may still be starting"
-    kubectl wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=grafana -n pod-metrics-dashboard || echo "Warning: Grafana may still be starting"
+    kubectl wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=prometheus -n monitoring || echo "Warning: Prometheus may still be starting"
+    kubectl wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=grafana -n monitoring || echo "Warning: Grafana may still be starting"
 
 elif [ "$METRICS_BACKEND" = "victoriametrics" ]; then
     echo -e "${BLUE}📈 Installing VictoriaMetrics Stack (vmagent + VictoriaMetrics)${NC}"
@@ -206,50 +210,49 @@ elif [ "$METRICS_BACKEND" = "victoriametrics" ]; then
     echo -e "   ${YELLOW}Chart:${NC} vm/victoria-metrics-cluster"
     echo -e "   ${YELLOW}Includes:${NC} vminsert, vmselect, vmstorage"
     echo -e "   ${YELLOW}Config:${NC} Using default values"
+    echo -e "   ${YELLOW}Namespace:${NC} monitoring"
     
-    # Install VictoriaMetrics Cluster (without custom values file since we deleted it)
+    # Install VictoriaMetrics Cluster
     helm upgrade --install victoria-metrics vm/victoria-metrics-cluster \
-      --namespace pod-metrics-dashboard \
-      --create-namespace
+      --namespace monitoring
 
     echo "⏳ Waiting for VictoriaMetrics cluster to be ready..."
-    kubectl wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=vminsert -n pod-metrics-dashboard || echo "Warning: vminsert may still be starting"
-    kubectl wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=vmselect -n pod-metrics-dashboard || echo "Warning: vmselect may still be starting"
-    kubectl wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=vmstorage -n pod-metrics-dashboard || echo "Warning: vmstorage may still be starting"
+    kubectl wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=vminsert -n monitoring || echo "Warning: vminsert may still be starting"
+    kubectl wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=vmselect -n monitoring || echo "Warning: vmselect may still be starting"
+    kubectl wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=vmstorage -n monitoring || echo "Warning: vmstorage may still be starting"
 
     # Install kube-state-metrics for resource requests/limits
     echo -e "${BLUE}📊 Installing kube-state-metrics (Resource metadata)${NC}"
     echo -e "   ${YELLOW}Purpose:${NC} Provides resource requests/limits data"
     echo -e "   ${YELLOW}Chart:${NC} prometheus-community/kube-state-metrics"
+    echo -e "   ${YELLOW}Namespace:${NC} monitoring"
     helm upgrade --install kube-state-metrics prometheus-community/kube-state-metrics \
-      --namespace pod-metrics-dashboard \
-      --create-namespace
+      --namespace monitoring
 
     # Install vmagent using Helm
     echo -e "${BLUE}🔧 Installing vmagent (Metrics collector)${NC}"
     echo -e "   ${YELLOW}Purpose:${NC} Lightweight Kubernetes metrics scraping agent"
     echo -e "   ${YELLOW}Chart:${NC} vm/victoria-metrics-agent"
     echo -e "   ${YELLOW}Config:${NC} vmagent-values.yaml"
+    echo -e "   ${YELLOW}Namespace:${NC} monitoring"
     
     if helm upgrade --install vmagent vm/victoria-metrics-agent \
-      --namespace pod-metrics-dashboard \
-      --create-namespace \
+      --namespace monitoring \
       --values vmagent-values.yaml; then
         
         echo "⏳ Waiting for vmagent to be ready..."
-        kubectl wait --for=condition=available --timeout=300s deployment/vmagent-victoria-metrics-agent -n pod-metrics-dashboard || echo "Warning: vmagent may still be starting"
+        kubectl wait --for=condition=available --timeout=300s deployment/vmagent-victoria-metrics-agent -n monitoring || echo "Warning: vmagent may still be starting"
     else
         echo -e "${YELLOW}⚠️  vmagent installation failed. Trying without custom values...${NC}"
-        # Try with inline configuration
+        # Try with inline configuration (updated for monitoring namespace)
         helm upgrade --install vmagent vm/victoria-metrics-agent \
-          --namespace pod-metrics-dashboard \
-          --create-namespace \
-          --set remoteWrite[0].url=http://victoria-metrics-victoria-metrics-cluster-vminsert.pod-metrics-dashboard.svc.cluster.local:8480/insert/0/prometheus/
+          --namespace monitoring \
+          --set remoteWrite[0].url=http://victoria-metrics-victoria-metrics-cluster-vminsert.monitoring.svc.cluster.local:8480/insert/0/prometheus/
         
         echo "⏳ Waiting for vmagent to be ready..."
-        kubectl wait --for=condition=available --timeout=300s deployment/vmagent-victoria-metrics-agent -n pod-metrics-dashboard || echo "Warning: vmagent may still be starting"
+        kubectl wait --for=condition=available --timeout=300s deployment/vmagent-victoria-metrics-agent -n monitoring || echo "Warning: vmagent may still be starting"
     fi
-    kubectl wait --for=condition=available --timeout=300s deployment/kube-state-metrics -n pod-metrics-dashboard || echo "Warning: kube-state-metrics may still be starting"
+    kubectl wait --for=condition=available --timeout=300s deployment/kube-state-metrics -n monitoring || echo "Warning: kube-state-metrics may still be starting"
 
 else
     echo -e "${RED}❌ Unsupported metrics backend: $METRICS_BACKEND${NC}"
@@ -344,7 +347,7 @@ if [ "$METRICS_BACKEND" = "prometheus" ]; then
 elif [ "$METRICS_BACKEND" = "victoriametrics" ]; then
     echo -e "${BLUE}📈 VictoriaMetrics Query Interface:${NC}"
     echo "1. Port forward the vmselect service:"
-    echo "   kubectl port-forward -n pod-metrics-dashboard service/victoria-metrics-victoria-metrics-cluster-vmselect 8481:8481"
+    echo "   kubectl port-forward -n monitoring service/victoria-metrics-victoria-metrics-cluster-vmselect 8481:8481"
     echo ""
     echo "2. Access VictoriaMetrics UI: http://localhost:8481/select/0/vmui"
     echo ""
@@ -353,9 +356,12 @@ echo ""
 echo -e "${BLUE}📋 To view logs:${NC}"
 echo "   kubectl logs -n pod-metrics-dashboard -l app=pod-metrics-backend"
 echo "   kubectl logs -n pod-metrics-dashboard -l app=pod-metrics-frontend"
+echo "   kubectl logs -n monitoring -l app.kubernetes.io/name=victoria-metrics"
+echo "   kubectl logs -n monitoring -l app=vmagent"
 echo ""
 echo -e "${BLUE}🧹 To clean up:${NC}"
 echo "   kubectl delete namespace pod-metrics-dashboard"
+echo "   kubectl delete namespace monitoring"
 echo ""
 echo -e "${BLUE}🔧 Version management:${NC}"
 echo "   ./version.sh show          # Show current version"
@@ -374,19 +380,28 @@ echo ""
 echo -e "${BLUE}🔧 Monitoring Stack Troubleshooting:${NC}"
 echo -e "${YELLOW}If Prometheus/Grafana are not accessible:${NC}"
 echo "1. Check if pods are running:"
-echo "   kubectl get pods -n pod-metrics-dashboard | grep prometheus"
-echo "   kubectl get pods -n pod-metrics-dashboard | grep grafana"
+echo "   kubectl get pods -n monitoring | grep prometheus"
+echo "   kubectl get pods -n monitoring | grep grafana"
 echo ""
 echo "2. Check service status:"
-echo "   kubectl get services -n pod-metrics-dashboard"
+echo "   kubectl get services -n monitoring"
 echo ""
 echo "3. View logs for troubleshooting:"
-echo "   kubectl logs -n pod-metrics-dashboard deployment/prometheus-stack-grafana"
-echo "   kubectl logs -n pod-metrics-dashboard deployment/prometheus-stack-kube-prom-operator"
+echo "   kubectl logs -n monitoring deployment/prometheus-stack-grafana"
+echo "   kubectl logs -n monitoring deployment/prometheus-stack-kube-prom-operator"
+echo ""
+echo -e "${YELLOW}If VictoriaMetrics is not accessible:${NC}"
+echo "4. Check VictoriaMetrics pods:"
+echo "   kubectl get pods -n monitoring | grep victoria-metrics"
+echo "   kubectl get pods -n monitoring | grep vmagent"
 echo ""
 echo -e "${YELLOW}If historical analysis endpoints return errors:${NC}"
-echo "4. Verify Prometheus connectivity from backend:"
-echo "   kubectl port-forward -n pod-metrics-dashboard service/prometheus-stack-kube-prom-prometheus 9090:9090"
+echo "5. Verify Prometheus connectivity from backend:"
+echo "   kubectl port-forward -n monitoring service/prometheus-stack-kube-prom-prometheus 9090:9090"
 echo "   curl http://localhost:9090/api/v1/query?query=up"
+echo ""
+echo "6. Verify VictoriaMetrics connectivity from backend:"
+echo "   kubectl port-forward -n monitoring service/victoria-metrics-victoria-metrics-cluster-vmselect 8481:8481"
+echo "   curl http://localhost:8481/select/0/prometheus/api/v1/query?query=up"
 echo ""
 echo -e "${GREEN}🎉 Deployment complete with full monitoring stack!${NC}"
