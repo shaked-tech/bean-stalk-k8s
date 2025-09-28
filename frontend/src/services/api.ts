@@ -37,6 +37,71 @@ export interface PodSummaryResponse {
   generatedAt: string;
 }
 
+// Recommendation types
+export interface ResourceRecommendation {
+  currentRequest: string;
+  currentLimit: string;
+  currentUsage: string;
+  recommendedRequest?: string;
+  recommendedLimit?: string;
+  currentUtilization: number;
+  targetUtilization: number;
+  currentRequestValue: number;
+  currentLimitValue: number;
+  currentUsageValue: number;
+  recommendedRequestValue: number;
+  recommendedLimitValue?: number;
+  resourceChange: string;
+  percentageChange: number;
+}
+
+export interface PodResourceRecommendation {
+  podName: string;
+  namespace: string;
+  containerName: string;
+  cpu: ResourceRecommendation;
+  memory: ResourceRecommendation;
+  reasons: string[];
+  priority: 'high' | 'medium' | 'low';
+  confidenceScore: number;
+  estimatedSavings: string;
+  riskLevel: string;
+  basedOnDays: number;
+  dataQuality: string;
+}
+
+export interface RecommendationsSummary {
+  totalPodsAnalyzed: number;
+  podsNeedingOptimization: number;
+  podsWellOptimized: number;
+  totalCpuRequestIncrease: string;
+  totalCpuRequestDecrease: string;
+  totalMemoryRequestChange: string;
+  estimatedCostSavings: string;
+  highPriorityRecommendations: number;
+  mediumPriorityRecommendations: number;
+  lowPriorityRecommendations: number;
+  overUtilizedPods: number;
+  underUtilizedPods: number;
+  podsWithCpuLimits: number;
+  memoryMisalignedPods: number;
+  podsMissingRequests: number;
+}
+
+export interface TimeRange {
+  start: string;
+  end: string;
+}
+
+export interface RecommendationsResponse {
+  recommendations: PodResourceRecommendation[];
+  summary: RecommendationsSummary;
+  generatedAt: string;
+  timeRange: TimeRange;
+  analysisWindow: string;
+  targetUtilization: number;
+}
+
 const API_BASE_URL = '/api';
 
 // Enable mock data via environment variable for QA testing
@@ -358,6 +423,162 @@ export const fetchPodSummary = async (namespace?: string): Promise<PodSummaryRes
     return data;
   } catch (error) {
     console.error('Error fetching pod summary:', error);
+    return null;
+  }
+};
+
+export const fetchPodRecommendations = async (namespace?: string): Promise<RecommendationsResponse | null> => {
+  if (SAFE_USE_MOCK_DATA) {
+    // Simulate API delay for realistic testing
+    await new Promise(resolve => setTimeout(resolve, 600));
+    
+    // Generate mock recommendations based on pod data
+    const filteredPods = namespace 
+      ? MOCK_PODS.filter(pod => pod.namespace === namespace)
+      : MOCK_PODS;
+    
+    const recommendations: PodResourceRecommendation[] = filteredPods.map(pod => {
+      // Determine if pod needs optimization
+      const cpuUtilization = pod.cpu.requestPercentage;
+      const memoryUtilization = pod.memory.requestPercentage;
+      const hasOptimalCpuUsage = cpuUtilization >= 60 && cpuUtilization <= 75;
+      const hasOptimalMemoryUsage = memoryUtilization >= 60 && memoryUtilization <= 75;
+      const hasCpuLimit = pod.cpu.limitValue > 0;
+      const memoryMisaligned = Math.abs(pod.memory.requestValue - pod.memory.limitValue) > pod.memory.requestValue * 0.01;
+      
+      let reasons: string[] = [];
+      let priority: 'high' | 'medium' | 'low' = 'low';
+      
+      // Determine reasons and priority
+      if (!hasOptimalCpuUsage) {
+        if (cpuUtilization > 75) {
+          reasons.push('over_utilized');
+          priority = 'high';
+        } else if (cpuUtilization < 60) {
+          reasons.push('under_utilized');
+          priority = priority === 'low' ? 'medium' : priority;
+        }
+      } else {
+        reasons.push('well_optimized');
+      }
+      
+      if (hasCpuLimit) {
+        reasons.push('cpu_limit_present');
+        priority = 'high';
+      }
+      
+      if (memoryMisaligned) {
+        reasons.push('memory_misaligned');
+        priority = priority === 'low' ? 'medium' : priority;
+      }
+      
+      if (!hasOptimalMemoryUsage) {
+        if (memoryUtilization > 75) {
+          reasons.push('over_utilized');
+          priority = 'high';
+        } else if (memoryUtilization < 60) {
+          reasons.push('under_utilized');  
+          priority = priority === 'low' ? 'medium' : priority;
+        }
+      }
+      
+      // Calculate recommended values
+      const targetCpuRequest = hasOptimalCpuUsage ? pod.cpu.usageValue : (pod.cpu.usageValue / 0.7);
+      const targetMemoryRequest = hasOptimalMemoryUsage ? pod.memory.usageValue : (pod.memory.usageValue / 0.7);
+      
+      return {
+        podName: pod.name,
+        namespace: pod.namespace,
+        containerName: pod.containerName,
+        cpu: {
+          currentRequest: pod.cpu.request,
+          currentLimit: pod.cpu.limit,
+          currentUsage: pod.cpu.usage,
+          recommendedRequest: hasOptimalCpuUsage && !hasCpuLimit ? undefined : `${Math.round(targetCpuRequest)}m`,
+          recommendedLimit: hasCpuLimit ? undefined : undefined,
+          currentUtilization: cpuUtilization,
+          targetUtilization: 70,
+          currentRequestValue: pod.cpu.requestValue,
+          currentLimitValue: pod.cpu.limitValue,
+          currentUsageValue: pod.cpu.usageValue,
+          recommendedRequestValue: targetCpuRequest,
+          recommendedLimitValue: undefined,
+          resourceChange: hasCpuLimit ? 'remove_limit' : (hasOptimalCpuUsage ? 'no_change' : 'adjust'),
+          percentageChange: hasOptimalCpuUsage && !hasCpuLimit ? 0 : ((targetCpuRequest - pod.cpu.requestValue) / pod.cpu.requestValue) * 100
+        },
+        memory: {
+          currentRequest: pod.memory.request,
+          currentLimit: pod.memory.limit,
+          currentUsage: pod.memory.usage,
+          recommendedRequest: hasOptimalMemoryUsage && !memoryMisaligned ? undefined : `${Math.round(targetMemoryRequest / 1024 / 1024)}Mi`,
+          recommendedLimit: hasOptimalMemoryUsage && !memoryMisaligned ? undefined : `${Math.round(targetMemoryRequest / 1024 / 1024)}Mi`,
+          currentUtilization: memoryUtilization,
+          targetUtilization: 70,
+          currentRequestValue: pod.memory.requestValue,
+          currentLimitValue: pod.memory.limitValue,
+          currentUsageValue: pod.memory.usageValue,
+          recommendedRequestValue: targetMemoryRequest,
+          recommendedLimitValue: targetMemoryRequest,
+          resourceChange: hasOptimalMemoryUsage && !memoryMisaligned ? 'no_change' : 'align',
+          percentageChange: hasOptimalMemoryUsage && !memoryMisaligned ? 0 : ((targetMemoryRequest - pod.memory.requestValue) / pod.memory.requestValue) * 100
+        },
+        reasons,
+        priority,
+        confidenceScore: 85 + Math.random() * 10, // 85-95%
+        estimatedSavings: reasons.includes('under_utilized') ? 'medium' : 'low',
+        riskLevel: priority === 'high' ? 'medium' : 'low',
+        basedOnDays: 7,
+        dataQuality: 'good'
+      };
+    });
+    
+    // Generate summary
+    const summary: RecommendationsSummary = {
+      totalPodsAnalyzed: recommendations.length,
+      podsNeedingOptimization: recommendations.filter(r => !r.reasons.includes('well_optimized') || r.reasons.length > 1).length,
+      podsWellOptimized: recommendations.filter(r => r.reasons.includes('well_optimized') && r.reasons.length === 1).length,
+      totalCpuRequestIncrease: "500m",
+      totalCpuRequestDecrease: "800m",
+      totalMemoryRequestChange: "+200Mi",
+      estimatedCostSavings: "medium",
+      highPriorityRecommendations: recommendations.filter(r => r.priority === 'high').length,
+      mediumPriorityRecommendations: recommendations.filter(r => r.priority === 'medium').length,
+      lowPriorityRecommendations: recommendations.filter(r => r.priority === 'low').length,
+      overUtilizedPods: recommendations.filter(r => r.reasons.includes('over_utilized')).length,
+      underUtilizedPods: recommendations.filter(r => r.reasons.includes('under_utilized')).length,
+      podsWithCpuLimits: recommendations.filter(r => r.reasons.includes('cpu_limit_present')).length,
+      memoryMisalignedPods: recommendations.filter(r => r.reasons.includes('memory_misaligned')).length,
+      podsMissingRequests: 0
+    };
+    
+    return {
+      recommendations,
+      summary,
+      generatedAt: new Date().toISOString(),
+      timeRange: {
+        start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        end: new Date().toISOString()
+      },
+      analysisWindow: "7 days",
+      targetUtilization: 70
+    };
+  }
+
+  try {
+    const url = namespace
+      ? `${API_BASE_URL}/pods/recommendations?namespace=${namespace}`
+      : `${API_BASE_URL}/pods/recommendations`;
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data: RecommendationsResponse = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching pod recommendations:', error);
     return null;
   }
 };

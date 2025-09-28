@@ -29,9 +29,9 @@ spec:
         - name: METRICS_BACKEND
           value: "victoriametrics"  # Options: "prometheus", "victoriametrics"
         - name: METRICS_PROMETHEUS_URL
-          value: "http://prometheus-stack-kube-prom-prometheus.pod-metrics-dashboard.svc.cluster.local:9090"
+          value: "http://prometheus-stack-kube-prom-prometheus.monitoring.svc.cluster.local:9090"
         - name: METRICS_VICTORIAMETRICS_URL
-          value: "http://victoria-metrics-victoria-metrics-cluster-vmselect.pod-metrics-dashboard.svc.cluster.local:8481/select/0/prometheus"
+          value: "http://victoria-metrics-victoria-metrics-cluster-vmselect.monitoring.svc.cluster.local:8481/select/0/prometheus"
         # Legacy environment variables for backward compatibility
         - name: PROMETHEUS_URL
           value: "$(METRICS_PROMETHEUS_URL)"

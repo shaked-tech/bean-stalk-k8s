@@ -11,6 +11,7 @@ import (
 	"time"
 	"github.com/bean-stalk-k8s/backend/k8s"
 	"github.com/bean-stalk-k8s/backend/models"
+	"github.com/bean-stalk-k8s/backend/recommendations"
 )
 
 // Handler contains metrics client for unified data access
@@ -723,6 +724,83 @@ func (h *Handler) GetPodSummary(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+// GetResourceRecommendations returns resource optimization recommendations for pods based on current usage
+func (h *Handler) GetResourceRecommendations(w http.ResponseWriter, r *http.Request) {
+	if h.metricsClient == nil {
+		http.Error(w, "Resource recommendations not available - metrics client not initialized", http.StatusServiceUnavailable)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	log.Printf("INFO: Starting current-usage-based resource recommendations generation")
+
+	// Get namespace from query parameter
+	namespace := r.URL.Query().Get("namespace")
+
+	// Get current metrics - this is all we need now!
+	currentData, err := h.metricsClient.GetCurrentPodMetrics(ctx, namespace)
+	if err != nil {
+		log.Printf("ERROR: Failed to get current metrics from %s: %v", h.metricsClient.GetClientType(), err)
+		http.Error(w, fmt.Sprintf("Failed to get current metrics: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("INFO: Retrieved %d pods with current metrics for analysis", len(currentData))
+
+	// Create recommendation engine with default configuration
+	config := models.DefaultRecommendationConfig()
+	
+	// Allow configuration override via environment variables
+	if targetCPU := getEnvWithDefault("RECOMMENDATIONS_TARGET_CPU_UTILIZATION", ""); targetCPU != "" {
+		if cpu, err := strconv.ParseFloat(targetCPU, 64); err == nil {
+			config.TargetCPUUtilization = cpu
+		}
+	}
+	if targetMemory := getEnvWithDefault("RECOMMENDATIONS_TARGET_MEMORY_UTILIZATION", ""); targetMemory != "" {
+		if memory, err := strconv.ParseFloat(targetMemory, 64); err == nil {
+			config.TargetMemoryUtilization = memory
+		}
+	}
+	
+	// Override CPU limit removal setting if specified
+	if removeCPULimits := getEnvWithDefault("RECOMMENDATIONS_REMOVE_CPU_LIMITS", ""); removeCPULimits != "" {
+		if remove, err := strconv.ParseBool(removeCPULimits); err == nil {
+			config.RemoveCPULimits = remove
+		}
+	}
+
+	log.Printf("INFO: Using recommendation config - CPU target: %.0f%%, Memory target: %.0f%%", 
+		config.TargetCPUUtilization, config.TargetMemoryUtilization)
+
+	engine := recommendations.NewRecommendationEngine(config)
+
+	// Generate recommendations using only current metrics
+	recommendationsResponse, err := engine.GenerateRecommendations(currentData)
+	if err != nil {
+		log.Printf("ERROR: Failed to generate recommendations: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to generate recommendations: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+
+	// Write response
+	if err := json.NewEncoder(w).Encode(recommendationsResponse); err != nil {
+		log.Printf("ERROR: Failed to encode recommendations response: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("INFO: Successfully generated %d current-usage-based recommendations (High: %d, Medium: %d, Low: %d)",
+		recommendationsResponse.Summary.TotalPodsAnalyzed,
+		recommendationsResponse.Summary.HighPriorityRecommendations,
+		recommendationsResponse.Summary.MediumPriorityRecommendations,
+		recommendationsResponse.Summary.LowPriorityRecommendations)
 }
 
 // Environment variable helper functions

@@ -74,18 +74,58 @@ func (vm *VictoriaMetricsClient) GetCurrentPodMetrics(ctx context.Context, names
 		namespaceFilter = fmt.Sprintf(`namespace="%s"`, namespace)
 	}
 	
-	// Get current CPU usage
-	cpuQuery := `rate(container_cpu_usage_seconds_total{container!="POD", container!=""`
-	if namespaceFilter != "" {
-		cpuQuery += "," + namespaceFilter
+	// Get current CPU usage - try multiple rate windows for better reliability
+	// Start with shorter rate windows and fall back to longer ones
+	cpuQueries := []string{
+		// Primary: Use 1 minute rate (more responsive)
+		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[1m])`, 
+			func() string {
+				if namespaceFilter != "" {
+					return "," + namespaceFilter
+				}
+				return ""
+			}()),
+		// Fallback 1: Use 30 second rate (very responsive, may be noisy)
+		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[30s])`, 
+			func() string {
+				if namespaceFilter != "" {
+					return "," + namespaceFilter
+				}
+				return ""
+			}()),
+		// Fallback 2: Use 2 minute rate 
+		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[2m])`, 
+			func() string {
+				if namespaceFilter != "" {
+					return "," + namespaceFilter
+				}
+				return ""
+			}()),
+		// Last resort: Use 5 minute rate (original)
+		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[5m])`, 
+			func() string {
+				if namespaceFilter != "" {
+					return "," + namespaceFilter
+				}
+				return ""
+			}()),
 	}
-	cpuQuery += `}[5m])`
 	
-	log.Printf("DEBUG: Executing CPU query: %s", cpuQuery)
+	var cpuResult *VMResponse
+	var cpuErr error
 	
-	cpuResult, err := vm.query(ctx, cpuQuery)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query CPU usage: %w", err)
+	for i, cpuQuery := range cpuQueries {
+		log.Printf("DEBUG: Executing CPU query (attempt %d): %s", i+1, cpuQuery)
+		cpuResult, cpuErr = vm.query(ctx, cpuQuery)
+		if cpuErr == nil && len(cpuResult.Data.Result) > 0 {
+			log.Printf("DEBUG: CPU query successful with %d results", len(cpuResult.Data.Result))
+			break
+		}
+		log.Printf("DEBUG: CPU query attempt %d failed or returned no results: %v", i+1, cpuErr)
+	}
+	
+	if cpuErr != nil {
+		return nil, fmt.Errorf("failed to query CPU usage with all methods: %w", cpuErr)
 	}
 	
 	// Get current Memory usage
