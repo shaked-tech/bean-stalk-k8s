@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -11,9 +11,18 @@ import {
   Typography,
   Box,
   useMediaQuery,
-  useTheme
+  useTheme,
+  Button,
+  CircularProgress
 } from '@mui/material';
-import { PodMetrics } from '../services/api';
+import {
+  CheckCircle as OptimizedIcon,
+  Warning as WarningIcon,
+  Error as ErrorIcon,
+  Psychology as RecommendIcon
+} from '@mui/icons-material';
+import { PodMetrics, PodResourceRecommendation, fetchPodRecommendations } from '../services/api';
+import RecommendationModal from './RecommendationModal';
 
 interface PodMetricsTableProps {
   pods: PodMetrics[];
@@ -35,6 +44,14 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
   const isSmall = useMediaQuery(theme.breakpoints.down('md')); // < 900px
   const isMedium = useMediaQuery(theme.breakpoints.down('lg')); // < 1200px
   const isLarge = useMediaQuery(theme.breakpoints.down('xl')); // < 1536px
+
+  // Recommendation state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedPod, setSelectedPod] = useState<PodMetrics | null>(null);
+  const [recommendation, setRecommendation] = useState<PodResourceRecommendation | undefined>(undefined);
+  const [loadingRecommendation, setLoadingRecommendation] = useState(false);
+  const [recommendationError, setRecommendationError] = useState<string>('');
+  const [loadingPods, setLoadingPods] = useState<Set<string>>(new Set());
 
   const handleSort = (property: string) => {
     onSortChange(property);
@@ -234,7 +251,99 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
     return sortDirection === 'asc' ? ' ↑' : ' ↓';
   };
 
+  // Helper functions for recommendations
+  const getPodKey = (pod: PodMetrics): string => {
+    return `${pod.namespace}/${pod.name}/${pod.containerName}`;
+  };
+
+  const getPodOptimizationStatus = (pod: PodMetrics) => {
+    const cpuUtilization = pod.cpu.requestPercentage;
+    const memoryUtilization = pod.memory.requestPercentage;
+    const hasOptimalCpuUsage = cpuUtilization >= 60 && cpuUtilization <= 75;
+    const hasOptimalMemoryUsage = memoryUtilization >= 60 && memoryUtilization <= 75;
+    const hasCpuLimit = pod.cpu.limitValue > 0;
+    const memoryMisaligned = Math.abs(pod.memory.requestValue - pod.memory.limitValue) > pod.memory.requestValue * 0.01;
+
+    // Over-utilized pods = HIGH RISK (red)
+    const hasHighRiskIssues = cpuUtilization > 75 || memoryUtilization > 75 || hasCpuLimit;
+    
+    if (hasHighRiskIssues) {
+      return { status: 'high_risk', color: 'error' as const, text: '🚨 High Risk', icon: <ErrorIcon /> };
+    }
+
+    // Optimized pods = LOW RISK (green)
+    if (hasOptimalCpuUsage && hasOptimalMemoryUsage && !hasCpuLimit && !memoryMisaligned) {
+      return { status: 'optimized', color: 'success' as const, text: '✅ Optimized', icon: <OptimizedIcon /> };
+    }
+
+    // Under-utilized pods = LOW RISK (blue)
+    const isUnderUtilized = cpuUtilization < 60 || memoryUtilization < 60;
+    
+    if (isUnderUtilized) {
+      return { status: 'low_risk', color: 'info' as const, text: '📉 Under-utilized', icon: <OptimizedIcon /> };
+    }
+
+    // Memory misalignment only = MEDIUM RISK (yellow)
+    if (memoryMisaligned) {
+      return { status: 'minor_issues', color: 'warning' as const, text: '⚠️ Minor Issues', icon: <WarningIcon /> };
+    }
+
+    return { status: 'get_recommendation', color: 'primary' as const, text: 'Get Recommendation', icon: <RecommendIcon /> };
+  };
+
+  const handleRecommendationClick = async (pod: PodMetrics) => {
+    const podKey = getPodKey(pod);
+    setSelectedPod(pod);
+    setModalOpen(true);
+    setLoadingRecommendation(true);
+    setRecommendationError('');
+    setRecommendation(undefined);
+
+    // Add to loading set
+    setLoadingPods(prev => new Set(prev).add(podKey));
+
+    try {
+      const recommendationsResponse = await fetchPodRecommendations(pod.namespace);
+      
+      if (recommendationsResponse) {
+        // Find the specific recommendation for this pod
+        const podRecommendation = recommendationsResponse.recommendations.find(r => 
+          r.podName === pod.name && 
+          r.namespace === pod.namespace && 
+          r.containerName === pod.containerName
+        );
+        
+        setRecommendation(podRecommendation);
+        
+        if (!podRecommendation) {
+          setRecommendationError('No recommendation found for this pod. This may indicate insufficient historical data.');
+        }
+      } else {
+        setRecommendationError('Failed to fetch recommendations. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error fetching recommendation:', error);
+      setRecommendationError('Failed to fetch recommendations. Please try again.');
+    } finally {
+      setLoadingRecommendation(false);
+      // Remove from loading set
+      setLoadingPods(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(podKey);
+        return newSet;
+      });
+    }
+  };
+
+  const handleModalClose = () => {
+    setModalOpen(false);
+    setSelectedPod(null);
+    setRecommendation(undefined);
+    setRecommendationError('');
+  };
+
   return (
+    <>
     <TableContainer component={Paper}>
       <Table stickyHeader aria-label="sticky table">
         <TableHead>
@@ -343,6 +452,12 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
                 Memory Limit %{renderSortArrow('memoryLimitPercentage')}
               </TableCell>
             )}
+            {/* Recommendation Actions Column */}
+            <TableCell 
+              sx={{ fontWeight: 'bold', minWidth: 150, textAlign: 'center' }}
+            >
+              Actions
+            </TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -415,11 +530,52 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
                   {renderProgressBar(pod.memory.limitPercentage, pod.memory.limitPercentage > 80 ? 'error' : 'info', pod.memory.limitValue > 0)}
                 </TableCell>
               )}
+              {/* Recommendation Actions Column */}
+              <TableCell sx={{ minWidth: 150, textAlign: 'center' }}>
+                {(() => {
+                  const podKey = getPodKey(pod);
+                  const status = getPodOptimizationStatus(pod);
+                  const isLoading = loadingPods.has(podKey);
+                  
+                  return (
+                    <Button
+                      size="small"
+                      color={status.color}
+                      variant={status.status === 'optimized' ? 'outlined' : 'contained'}
+                      onClick={() => handleRecommendationClick(pod)}
+                      disabled={isLoading}
+                      startIcon={isLoading ? <CircularProgress size={16} /> : status.icon}
+                      sx={{ 
+                        minWidth: 'auto',
+                        whiteSpace: 'nowrap',
+                        fontSize: '0.75rem'
+                      }}
+                    >
+                      {isLoading ? 'Loading...' : status.text}
+                    </Button>
+                  );
+                })()}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
     </TableContainer>
+
+    {/* Recommendation Modal */}
+    {selectedPod && (
+      <RecommendationModal
+        open={modalOpen}
+        onClose={handleModalClose}
+        podName={selectedPod.name}
+        namespace={selectedPod.namespace}
+        containerName={selectedPod.containerName}
+        recommendation={recommendation}
+        loading={loadingRecommendation}
+        error={recommendationError}
+      />
+    )}
+    </>
   );
 };
 

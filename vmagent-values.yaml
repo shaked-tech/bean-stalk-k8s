@@ -2,7 +2,7 @@
 
 # Remote write URLs - this is the critical required field
 remoteWrite:
-  - url: http://victoria-metrics-victoria-metrics-cluster-vminsert.pod-metrics-dashboard.svc.cluster.local:8480/insert/0/prometheus/
+  - url: http://victoria-metrics-victoria-metrics-cluster-vminsert.monitoring.svc.cluster.local:8480/insert/0/prometheus/
 
 # Enable RBAC for service discovery
 rbac:
@@ -25,7 +25,7 @@ config:
     - job_name: 'kube-state-metrics'
       static_configs:
         - targets: 
-          - 'kube-state-metrics.pod-metrics-dashboard.svc.cluster.local:8080'
+          - 'kube-state-metrics.monitoring.svc.cluster.local:8080'
       scrape_interval: 30s
       honor_timestamps: true
       

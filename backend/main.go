@@ -26,6 +26,7 @@ func main() {
 	mux.HandleFunc("/api/pods/analysis", handler.GetHistoricalAnalysis)
 	mux.HandleFunc("/api/pods/trends", handler.GetPodTrends)
 	mux.HandleFunc("/api/pods/summary", handler.GetPodSummary)
+	mux.HandleFunc("/api/pods/recommendations", handler.GetResourceRecommendations)
 
 	// Get port from environment variable or use default
 	port := os.Getenv("PORT")
