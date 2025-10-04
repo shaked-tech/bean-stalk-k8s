@@ -20,16 +20,16 @@ config:
     external_labels:
       cluster: 'kubernetes'
       environment: 'pod-metrics-dashboard'
-  
+
   scrape_configs:
     # Scrape kube-state-metrics for resource requests/limits
     - job_name: 'kube-state-metrics'
       static_configs:
-        - targets: 
+        - targets:
           - 'kube-state-metrics.monitoring.svc.cluster.local:8080'
       scrape_interval: 30s
       honor_timestamps: true
-      
+
     # Scrape kubelet cadvisor for container metrics (usage)
     - job_name: 'kubernetes-cadvisor'
       kubernetes_sd_configs:

@@ -29,7 +29,7 @@ const mockPodsWithNullLabels = [
     containerName: 'test-container',
     cpu: {
       usage: '100m',
-      request: '200m', 
+      request: '200m',
       limit: '500m',
       usageValue: 100,
       requestValue: 200,
@@ -40,7 +40,7 @@ const mockPodsWithNullLabels = [
     memory: {
       usage: '128Mi',
       request: '256Mi',
-      limit: '512Mi', 
+      limit: '512Mi',
       usageValue: 128,
       requestValue: 256,
       limitValue: 512,
@@ -56,7 +56,7 @@ const mockPodsWithNullLabels = [
     cpu: {
       usage: '200m',
       request: '300m',
-      limit: '600m', 
+      limit: '600m',
       usageValue: 200,
       requestValue: 300,
       limitValue: 600,
@@ -116,7 +116,7 @@ const mockSummary = {
 
 describe('App Search Functionality', () => {
   jest.setTimeout(15000); // Increase timeout for this test suite
-  
+
   beforeEach(() => {
     fetchNamespaces.mockResolvedValue(mockNamespaces);
     fetchPodMetrics.mockResolvedValue(mockPodsWithNullLabels);
@@ -148,7 +148,7 @@ describe('App Search Functionality', () => {
     // Clear and try another search
     await userEvent.clear(searchInput);
     await userEvent.type(searchInput, 'app');
-    
+
     // Verify search still works
     expect(searchInput.value).toBe('app');
   });
@@ -162,7 +162,7 @@ describe('App Search Functionality', () => {
     ];
 
     fetchPodMetrics.mockResolvedValue(podsWithUndefinedLabels);
-    
+
     render(<App />);
 
     await waitFor(() => {
@@ -170,7 +170,7 @@ describe('App Search Functionality', () => {
     });
 
     const searchInput = screen.getByPlaceholderText('Search pods, containers, namespaces...');
-    
+
     // This should not crash
     await userEvent.type(searchInput, 'test');
 
@@ -188,7 +188,7 @@ describe('App Search Functionality', () => {
     ];
 
     fetchPodMetrics.mockResolvedValue(podsWithInvalidLabels);
-    
+
     render(<App />);
 
     await waitFor(() => {
@@ -196,7 +196,7 @@ describe('App Search Functionality', () => {
     });
 
     const searchInput = screen.getByPlaceholderText('Search pods, containers, namespaces...');
-    
+
     // This should not crash
     await userEvent.type(searchInput, 'test');
 

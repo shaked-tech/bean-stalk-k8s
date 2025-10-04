@@ -17,12 +17,12 @@ import {
   useTheme as useMuiTheme,
   useMediaQuery
 } from '@mui/material';
-import { 
-  Refresh as RefreshIcon, 
-  Search as SearchIcon, 
+import {
+  Refresh as RefreshIcon,
+  Search as SearchIcon,
   Clear as ClearIcon,
   Brightness4 as DarkModeIcon,
-  Brightness7 as LightModeIcon 
+  Brightness7 as LightModeIcon
 } from '@mui/icons-material';
 import PodMetricsTable from './components/PodMetricsTable';
 import NamespaceFilter from './components/NamespaceFilter';
@@ -58,7 +58,7 @@ function App() {
         console.error('Error fetching namespaces:', err);
       }
     };
-    
+
     loadNamespaces();
   }, []);
 
@@ -80,7 +80,7 @@ function App() {
           fetchPodMetrics(selectedNamespace || undefined),
           fetchPodSummary(selectedNamespace || undefined)
         ]);
-        
+
         // Ensure we always set an array, even if API returns null/undefined
         setPods(podsData || []);
         setSummary(summaryData);
@@ -126,7 +126,7 @@ function App() {
         fetchPodMetrics(selectedNamespace || undefined),
         fetchPodSummary(selectedNamespace || undefined)
       ]);
-      
+
       setNamespaces(namespacesData);
       setPods(podsData);
       setSummary(summaryData);
@@ -159,9 +159,9 @@ function App() {
 
   const matchesSearch = (pod: PodMetrics, searchText: string): boolean => {
     if (!searchText) return true;
-    
+
     const search = searchText.toLowerCase();
-    
+
     // Check basic pod properties
     if (
       pod.name.toLowerCase().includes(search) ||
@@ -174,8 +174,8 @@ function App() {
     // Safely check labels - handle null, undefined, or non-object cases
     if (pod.labels && typeof pod.labels === 'object') {
       try {
-        return Object.entries(pod.labels).some(([key, value]) => 
-          key.toLowerCase().includes(search) || 
+        return Object.entries(pod.labels).some(([key, value]) =>
+          key.toLowerCase().includes(search) ||
           value.toLowerCase().includes(search)
         );
       } catch (error) {
@@ -223,13 +223,13 @@ function App() {
   // Use summary data from API (with fallback to manual calculations)
   const totalPods = summary?.totalPods ?? pods.length;
   const averageCpuUsage = summary?.averageCpuUsage ?? (
-    pods.length > 0 
-      ? pods.reduce((sum, pod) => sum + pod.cpu.requestPercentage, 0) / pods.length 
+    pods.length > 0
+      ? pods.reduce((sum, pod) => sum + pod.cpu.requestPercentage, 0) / pods.length
       : 0
   );
   const averageMemoryUsage = summary?.averageMemoryUsage ?? (
-    pods.length > 0 
-      ? pods.reduce((sum, pod) => sum + pod.memory.requestPercentage, 0) / pods.length 
+    pods.length > 0
+      ? pods.reduce((sum, pod) => sum + pod.memory.requestPercentage, 0) / pods.length
       : 0
   );
   const highCpuPods = summary?.highCpuPods ?? pods.filter(pod => pod.cpu.requestPercentage > 80).length;
@@ -245,8 +245,8 @@ function App() {
             Kubernetes Pod Metrics Dashboard
           </Typography>
           <Tooltip title="Refresh Data">
-            <IconButton 
-              color="inherit" 
+            <IconButton
+              color="inherit"
               onClick={handleRefresh}
               disabled={refreshing}
               sx={{ mr: 1 }}
@@ -255,8 +255,8 @@ function App() {
             </IconButton>
           </Tooltip>
           <Tooltip title={`Switch to ${mode === 'dark' ? 'light' : 'dark'} mode`}>
-            <IconButton 
-              color="inherit" 
+            <IconButton
+              color="inherit"
               onClick={toggleTheme}
             >
               {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
@@ -265,10 +265,10 @@ function App() {
         </Toolbar>
       </AppBar>
 
-      <Container 
-        maxWidth={false} 
-        sx={{ 
-          width: { xs: '98%', sm: '96%', md: '95%', lg: '94%', xl: '92%' }, 
+      <Container
+        maxWidth={false}
+        sx={{
+          width: { xs: '98%', sm: '96%', md: '95%', lg: '94%', xl: '92%' },
           maxWidth: 'none',
           px: { xs: 1, sm: 2, md: 2 },
           minHeight: 'calc(100vh - 64px)', // Account for AppBar height
@@ -281,16 +281,16 @@ function App() {
         )}
 
         {/* Summary Cards */}
-        <Box sx={{ 
-          display: 'flex', 
-          gap: { xs: 1, sm: 1.5, md: 2 }, 
+        <Box sx={{
+          display: 'flex',
+          gap: { xs: 1, sm: 1.5, md: 2 },
           mb: 3,
           flexWrap: 'wrap',
           justifyContent: 'space-between',
           alignItems: 'stretch'
         }}>
-          <Card sx={{ 
-            minWidth: { xs: 140, sm: 160, md: 180, lg: 200 }, 
+          <Card sx={{
+            minWidth: { xs: 140, sm: 160, md: 180, lg: 200 },
             flex: { xs: '1 1 calc(50% - 4px)', sm: '1 1 calc(33.33% - 8px)', md: '1 1 200px' },
             maxWidth: { xs: 'calc(50% - 4px)', sm: 'calc(33.33% - 8px)', md: 'none' }
           }}>
@@ -303,8 +303,8 @@ function App() {
               </Typography>
             </CardContent>
           </Card>
-          <Card sx={{ 
-            minWidth: { xs: 140, sm: 160, md: 180, lg: 200 }, 
+          <Card sx={{
+            minWidth: { xs: 140, sm: 160, md: 180, lg: 200 },
             flex: { xs: '1 1 calc(50% - 4px)', sm: '1 1 calc(33.33% - 8px)', md: '1 1 200px' },
             maxWidth: { xs: 'calc(50% - 4px)', sm: 'calc(33.33% - 8px)', md: 'none' }
           }}>
@@ -317,8 +317,8 @@ function App() {
               </Typography>
             </CardContent>
           </Card>
-          <Card sx={{ 
-            minWidth: { xs: 140, sm: 160, md: 180, lg: 200 }, 
+          <Card sx={{
+            minWidth: { xs: 140, sm: 160, md: 180, lg: 200 },
             flex: { xs: '1 1 calc(50% - 4px)', sm: '1 1 calc(33.33% - 8px)', md: '1 1 200px' },
             maxWidth: { xs: 'calc(50% - 4px)', sm: 'calc(33.33% - 8px)', md: 'none' }
           }}>
@@ -331,9 +331,9 @@ function App() {
               </Typography>
             </CardContent>
           </Card>
-          <Card 
-            sx={{ 
-              minWidth: { xs: 140, sm: 160, md: 180, lg: 200 }, 
+          <Card
+            sx={{
+              minWidth: { xs: 140, sm: 160, md: 180, lg: 200 },
               flex: { xs: '1 1 calc(50% - 4px)', sm: '1 1 calc(33.33% - 8px)', md: '1 1 200px' },
               maxWidth: { xs: 'calc(50% - 4px)', sm: 'calc(33.33% - 8px)', md: 'none' },
               cursor: 'pointer',
@@ -362,9 +362,9 @@ function App() {
               </Typography>
             </CardContent>
           </Card>
-          <Card 
-            sx={{ 
-              minWidth: { xs: 140, sm: 160, md: 180, lg: 200 }, 
+          <Card
+            sx={{
+              minWidth: { xs: 140, sm: 160, md: 180, lg: 200 },
               flex: { xs: '1 1 calc(50% - 4px)', sm: '1 1 calc(33.33% - 8px)', md: '1 1 200px' },
               maxWidth: { xs: 'calc(50% - 4px)', sm: 'calc(33.33% - 8px)', md: 'none' },
               cursor: 'pointer',
@@ -393,9 +393,9 @@ function App() {
               </Typography>
             </CardContent>
           </Card>
-          <Card 
-            sx={{ 
-              minWidth: { xs: 140, sm: 160, md: 180, lg: 200 }, 
+          <Card
+            sx={{
+              minWidth: { xs: 140, sm: 160, md: 180, lg: 200 },
               flex: { xs: '1 1 calc(50% - 4px)', sm: '1 1 calc(33.33% - 8px)', md: '1 1 200px' },
               maxWidth: { xs: 'calc(50% - 4px)', sm: 'calc(33.33% - 8px)', md: 'none' },
               cursor: 'pointer',
@@ -424,9 +424,9 @@ function App() {
               </Typography>
             </CardContent>
           </Card>
-          <Card 
-            sx={{ 
-              minWidth: { xs: 140, sm: 160, md: 180, lg: 200 }, 
+          <Card
+            sx={{
+              minWidth: { xs: 140, sm: 160, md: 180, lg: 200 },
               flex: { xs: '1 1 calc(50% - 4px)', sm: '1 1 calc(33.33% - 8px)', md: '1 1 200px' },
               maxWidth: { xs: 'calc(50% - 4px)', sm: 'calc(33.33% - 8px)', md: 'none' },
               cursor: 'pointer',
@@ -457,16 +457,16 @@ function App() {
           </Card>
         </Box>
 
-        <Paper sx={{ 
+        <Paper sx={{
           p: { xs: 1, sm: 1.5, md: 2 },
           borderRadius: { xs: 1, sm: 2 }
         }}>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            mb: 2, 
-            gap: { xs: 1, sm: 1.5, md: 2 }, 
-            flexWrap: 'wrap' 
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            mb: 2,
+            gap: { xs: 1, sm: 1.5, md: 2 },
+            flexWrap: 'wrap'
           }}>
             <Typography variant="h5" component="h2">
               Namespace
@@ -482,7 +482,7 @@ function App() {
               placeholder="Search pods, containers, namespaces..."
               value={searchText}
               onChange={handleSearchChange}
-              sx={{ 
+              sx={{
                 minWidth: { xs: 250, sm: 280, md: 300 },
                 maxWidth: { xs: '100%', sm: 400 },
                 flex: { xs: '1 1 auto', md: '0 0 auto' }
@@ -507,9 +507,9 @@ function App() {
               }}
             />
             {(activeFilter || debouncedSearchText) && (
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
+              <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
                 gap: 1,
                 px: { xs: 1, sm: 2 },
                 py: 1,
@@ -540,7 +540,7 @@ function App() {
             <>
               {pods.length === 0 ? (
                 <Typography variant="body1" sx={{ textAlign: 'center', py: 4 }}>
-                  {selectedNamespace 
+                  {selectedNamespace
                     ? `No pods found in namespace "${selectedNamespace}"`
                     : 'No pods found'
                   }

@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"io"
 	"log"
-"github.com/bean-stalk-k8s/backend/utils"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/bean-stalk-k8s/backend/utils"
 )
 
 // VictoriaMetricsClient wraps the VictoriaMetrics API client
@@ -28,14 +29,14 @@ func NewVictoriaMetricsClient(vmSelectURL, username, password string) (*Victoria
 	if !strings.HasSuffix(vmSelectURL, "/") {
 		vmSelectURL += "/"
 	}
-	
+
 	// Log authentication status
 	if username != "" && password != "" {
 		log.Printf("INFO: VictoriaMetrics client configured with Basic Authentication")
 	} else {
 		log.Printf("INFO: VictoriaMetrics client configured without authentication")
 	}
-	
+
 	return &VictoriaMetricsClient{
 		baseURL:  vmSelectURL,
 		username: username,
@@ -78,20 +79,20 @@ type VMResult struct {
 
 // GetCurrentPodMetrics retrieves current pod metrics from VictoriaMetrics
 func (vm *VictoriaMetricsClient) GetCurrentPodMetrics(ctx context.Context, namespace string) ([]PodMetric, error) {
-utils.Info("Querying VictoriaMetrics for pod metrics (namespace: %s)", namespace)
+	utils.Info("Querying VictoriaMetrics for pod metrics (namespace: %s)", namespace)
 	var pods []PodMetric
-	
+
 	// Build namespace filter
 	namespaceFilter := ""
 	if namespace != "" {
 		namespaceFilter = fmt.Sprintf(`namespace="%s"`, namespace)
 	}
-	
+
 	// Get current CPU usage - try multiple rate windows for better reliability
 	// Start with shorter rate windows and fall back to longer ones
 	cpuQueries := []string{
 		// Primary: Use 1 minute rate (more responsive)
-		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[1m])`, 
+		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[1m])`,
 			func() string {
 				if namespaceFilter != "" {
 					return "," + namespaceFilter
@@ -99,15 +100,15 @@ utils.Info("Querying VictoriaMetrics for pod metrics (namespace: %s)", namespace
 				return ""
 			}()),
 		// Fallback 1: Use 30 second rate (very responsive, may be noisy)
-		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[30s])`, 
+		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[30s])`,
 			func() string {
 				if namespaceFilter != "" {
 					return "," + namespaceFilter
 				}
 				return ""
 			}()),
-		// Fallback 2: Use 2 minute rate 
-		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[2m])`, 
+		// Fallback 2: Use 2 minute rate
+		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[2m])`,
 			func() string {
 				if namespaceFilter != "" {
 					return "," + namespaceFilter
@@ -115,7 +116,7 @@ utils.Info("Querying VictoriaMetrics for pod metrics (namespace: %s)", namespace
 				return ""
 			}()),
 		// Last resort: Use 5 minute rate (original)
-		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[5m])`, 
+		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[5m])`,
 			func() string {
 				if namespaceFilter != "" {
 					return "," + namespaceFilter
@@ -123,10 +124,10 @@ utils.Info("Querying VictoriaMetrics for pod metrics (namespace: %s)", namespace
 				return ""
 			}()),
 	}
-	
+
 	var cpuResult *VMResponse
 	var cpuErr error
-	
+
 	for i, cpuQuery := range cpuQueries {
 		utils.Debug("Executing CPU query (attempt %d): %s", i+1, cpuQuery)
 		cpuResult, cpuErr = vm.query(ctx, cpuQuery)
@@ -136,35 +137,35 @@ utils.Info("Querying VictoriaMetrics for pod metrics (namespace: %s)", namespace
 		}
 		utils.Debug("CPU query attempt %d failed or returned no results: %v", i+1, cpuErr)
 	}
-	
+
 	if cpuErr != nil {
 		return nil, fmt.Errorf("failed to query CPU usage with all methods: %w", cpuErr)
 	}
-	
+
 	// Get current Memory usage
 	memQuery := `container_memory_working_set_bytes{container!="POD", container!=""`
 	if namespaceFilter != "" {
 		memQuery += "," + namespaceFilter
 	}
 	memQuery += `}`
-	
+
 	utils.Debug("Executing Memory query: %s", memQuery)
-	
+
 	memResult, err := vm.query(ctx, memQuery)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query memory usage: %w", err)
 	}
-	
+
 	// Create a map to group metrics by pod/container
 	podMetrics := make(map[string]*PodMetric)
-	
+
 	// Process CPU usage
 	for _, result := range cpuResult.Data.Result {
 		key := fmt.Sprintf("%s/%s/%s",
 			result.Metric["namespace"],
 			result.Metric["pod"],
 			result.Metric["container"])
-		
+
 		if _, exists := podMetrics[key]; !exists {
 			podMetrics[key] = &PodMetric{
 				Name:          result.Metric["pod"],
@@ -173,7 +174,7 @@ utils.Info("Querying VictoriaMetrics for pod metrics (namespace: %s)", namespace
 				Labels:        make(map[string]string),
 			}
 		}
-		
+
 		if len(result.Value) >= 2 {
 			if val, ok := result.Value[1].(string); ok {
 				if cpuUsage, err := strconv.ParseFloat(val, 64); err == nil {
@@ -182,14 +183,14 @@ utils.Info("Querying VictoriaMetrics for pod metrics (namespace: %s)", namespace
 			}
 		}
 	}
-	
+
 	// Process Memory usage
 	for _, result := range memResult.Data.Result {
 		key := fmt.Sprintf("%s/%s/%s",
 			result.Metric["namespace"],
 			result.Metric["pod"],
 			result.Metric["container"])
-		
+
 		if _, exists := podMetrics[key]; !exists {
 			podMetrics[key] = &PodMetric{
 				Name:          result.Metric["pod"],
@@ -198,7 +199,7 @@ utils.Info("Querying VictoriaMetrics for pod metrics (namespace: %s)", namespace
 				Labels:        make(map[string]string),
 			}
 		}
-		
+
 		if len(result.Value) >= 2 {
 			if val, ok := result.Value[1].(string); ok {
 				if memUsage, err := strconv.ParseFloat(val, 64); err == nil {
@@ -209,18 +210,18 @@ utils.Info("Querying VictoriaMetrics for pod metrics (namespace: %s)", namespace
 			}
 		}
 	}
-	
+
 	// Get resource requests and limits
 	err = vm.addResourceLimitsAndRequests(ctx, podMetrics, namespace)
 	if err != nil {
 		log.Printf("Warning: failed to get resource requests/limits: %v", err)
 	}
-	
+
 	// Convert map to slice
 	for _, metric := range podMetrics {
 		pods = append(pods, *metric)
 	}
-	
+
 	return pods, nil
 }
 
@@ -231,25 +232,25 @@ func (vm *VictoriaMetricsClient) addResourceLimitsAndRequests(ctx context.Contex
 	if namespace != "" {
 		namespaceFilter = fmt.Sprintf(`namespace="%s"`, namespace)
 	}
-	
+
 	// Get CPU requests
 	cpuReqQuery := `kube_pod_container_resource_requests{resource="cpu"`
 	if namespaceFilter != "" {
 		cpuReqQuery += "," + namespaceFilter
 	}
 	cpuReqQuery += `}`
-	
+
 	cpuReqResult, err := vm.query(ctx, cpuReqQuery)
 	if err != nil {
 		return fmt.Errorf("failed to query CPU requests: %w", err)
 	}
-	
+
 	for _, result := range cpuReqResult.Data.Result {
 		key := fmt.Sprintf("%s/%s/%s",
 			result.Metric["namespace"],
 			result.Metric["pod"],
 			result.Metric["container"])
-		
+
 		if metric, exists := podMetrics[key]; exists {
 			if len(result.Value) >= 2 {
 				if val, ok := result.Value[1].(string); ok {
@@ -260,25 +261,25 @@ func (vm *VictoriaMetricsClient) addResourceLimitsAndRequests(ctx context.Contex
 			}
 		}
 	}
-	
+
 	// Get CPU limits
 	cpuLimitQuery := `kube_pod_container_resource_limits{resource="cpu"`
 	if namespaceFilter != "" {
 		cpuLimitQuery += "," + namespaceFilter
 	}
 	cpuLimitQuery += `}`
-	
+
 	cpuLimitResult, err := vm.query(ctx, cpuLimitQuery)
 	if err != nil {
 		return fmt.Errorf("failed to query CPU limits: %w", err)
 	}
-	
+
 	for _, result := range cpuLimitResult.Data.Result {
 		key := fmt.Sprintf("%s/%s/%s",
 			result.Metric["namespace"],
 			result.Metric["pod"],
 			result.Metric["container"])
-		
+
 		if metric, exists := podMetrics[key]; exists {
 			if len(result.Value) >= 2 {
 				if val, ok := result.Value[1].(string); ok {
@@ -289,25 +290,25 @@ func (vm *VictoriaMetricsClient) addResourceLimitsAndRequests(ctx context.Contex
 			}
 		}
 	}
-	
+
 	// Get Memory requests
 	memReqQuery := `kube_pod_container_resource_requests{resource="memory"`
 	if namespaceFilter != "" {
 		memReqQuery += "," + namespaceFilter
 	}
 	memReqQuery += `}`
-	
+
 	memReqResult, err := vm.query(ctx, memReqQuery)
 	if err != nil {
 		return fmt.Errorf("failed to query memory requests: %w", err)
 	}
-	
+
 	for _, result := range memReqResult.Data.Result {
 		key := fmt.Sprintf("%s/%s/%s",
 			result.Metric["namespace"],
 			result.Metric["pod"],
 			result.Metric["container"])
-		
+
 		if metric, exists := podMetrics[key]; exists {
 			if len(result.Value) >= 2 {
 				if val, ok := result.Value[1].(string); ok {
@@ -318,25 +319,25 @@ func (vm *VictoriaMetricsClient) addResourceLimitsAndRequests(ctx context.Contex
 			}
 		}
 	}
-	
+
 	// Get Memory limits
 	memLimitQuery := `kube_pod_container_resource_limits{resource="memory"`
 	if namespaceFilter != "" {
 		memLimitQuery += "," + namespaceFilter
 	}
 	memLimitQuery += `}`
-	
+
 	memLimitResult, err := vm.query(ctx, memLimitQuery)
 	if err != nil {
 		return fmt.Errorf("failed to query memory limits: %w", err)
 	}
-	
+
 	for _, result := range memLimitResult.Data.Result {
 		key := fmt.Sprintf("%s/%s/%s",
 			result.Metric["namespace"],
 			result.Metric["pod"],
 			result.Metric["container"])
-		
+
 		if metric, exists := podMetrics[key]; exists {
 			if len(result.Value) >= 2 {
 				if val, ok := result.Value[1].(string); ok {
@@ -347,7 +348,7 @@ func (vm *VictoriaMetricsClient) addResourceLimitsAndRequests(ctx context.Contex
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -355,7 +356,7 @@ func (vm *VictoriaMetricsClient) addResourceLimitsAndRequests(ctx context.Contex
 func (vm *VictoriaMetricsClient) GetHistoricalMetrics(ctx context.Context, namespace string) ([]HistoricalMetrics, error) {
 	now := time.Now()
 	sevenDaysAgo := now.Add(-7 * 24 * time.Hour)
-	
+
 	// Get pod list from the last 7 days
 	pods, err := vm.getActivePods(ctx, namespace, sevenDaysAgo, now)
 	if err != nil {
@@ -367,7 +368,7 @@ func (vm *VictoriaMetricsClient) GetHistoricalMetrics(ctx context.Context, names
 		for _, container := range pod.Containers {
 			metrics, err := vm.getHistoricalMetricsForContainer(ctx, pod.Name, pod.Namespace, container, sevenDaysAgo, now)
 			if err != nil {
-				log.Printf("Warning: failed to get metrics for pod %s/%s container %s: %v", 
+				log.Printf("Warning: failed to get metrics for pod %s/%s container %s: %v",
 					pod.Namespace, pod.Name, container, err)
 				continue
 			}
@@ -383,24 +384,24 @@ func (vm *VictoriaMetricsClient) getActivePods(ctx context.Context, namespace st
 	query := `group by (pod, namespace, container) (
 		rate(container_cpu_usage_seconds_total{namespace=~"` + namespace + `", container!="POD", container!=""}[5m])
 	)`
-	
+
 	result, err := vm.query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query active pods: %w", err)
 	}
 
 	podMap := make(map[string]PodInfo)
-	
+
 	for _, vmResult := range result.Data.Result {
 		pod := vmResult.Metric["pod"]
 		ns := vmResult.Metric["namespace"]
 		container := vmResult.Metric["container"]
-		
+
 		// Filter by namespace if specified
 		if namespace != "" && ns != namespace {
 			continue
 		}
-		
+
 		key := ns + "/" + pod
 		if existing, exists := podMap[key]; exists {
 			// Add container to existing pod
@@ -414,20 +415,20 @@ func (vm *VictoriaMetricsClient) getActivePods(ctx context.Context, namespace st
 			}
 		}
 	}
-	
+
 	var pods []PodInfo
 	for _, pod := range podMap {
 		pods = append(pods, pod)
 	}
-	
+
 	return pods, nil
 }
 
 // getHistoricalMetricsForContainer retrieves and analyzes historical metrics for a specific container
 func (vm *VictoriaMetricsClient) getHistoricalMetricsForContainer(ctx context.Context, pod, namespace, container string, start, end time.Time) (HistoricalMetrics, error) {
 	// Query CPU usage over time
-	cpuUsage, err := vm.queryRangeMetric(ctx, 
-		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{namespace="%s", pod="%s", container="%s"}[5m])`, 
+	cpuUsage, err := vm.queryRangeMetric(ctx,
+		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{namespace="%s", pod="%s", container="%s"}[5m])`,
 			namespace, pod, container), start, end)
 	if err != nil {
 		return HistoricalMetrics{}, fmt.Errorf("failed to query CPU usage: %w", err)
@@ -435,7 +436,7 @@ func (vm *VictoriaMetricsClient) getHistoricalMetricsForContainer(ctx context.Co
 
 	// Query Memory usage over time
 	memUsage, err := vm.queryRangeMetric(ctx,
-		fmt.Sprintf(`container_memory_working_set_bytes{namespace="%s", pod="%s", container="%s"}`, 
+		fmt.Sprintf(`container_memory_working_set_bytes{namespace="%s", pod="%s", container="%s"}`,
 			namespace, pod, container), start, end)
 	if err != nil {
 		return HistoricalMetrics{}, fmt.Errorf("failed to query memory usage: %w", err)
@@ -443,7 +444,7 @@ func (vm *VictoriaMetricsClient) getHistoricalMetricsForContainer(ctx context.Co
 
 	// Query CPU requests
 	cpuRequests, err := vm.queryRangeMetric(ctx,
-		fmt.Sprintf(`kube_pod_container_resource_requests{namespace="%s", pod="%s", container="%s", resource="cpu"}`, 
+		fmt.Sprintf(`kube_pod_container_resource_requests{namespace="%s", pod="%s", container="%s", resource="cpu"}`,
 			namespace, pod, container), start, end)
 	if err != nil {
 		log.Printf("Warning: failed to query CPU requests for %s/%s/%s: %v", namespace, pod, container, err)
@@ -452,7 +453,7 @@ func (vm *VictoriaMetricsClient) getHistoricalMetricsForContainer(ctx context.Co
 
 	// Query Memory requests
 	memRequests, err := vm.queryRangeMetric(ctx,
-		fmt.Sprintf(`kube_pod_container_resource_requests{namespace="%s", pod="%s", container="%s", resource="memory"}`, 
+		fmt.Sprintf(`kube_pod_container_resource_requests{namespace="%s", pod="%s", container="%s", resource="memory"}`,
 			namespace, pod, container), start, end)
 	if err != nil {
 		log.Printf("Warning: failed to query memory requests for %s/%s/%s: %v", namespace, pod, container, err)
@@ -461,7 +462,7 @@ func (vm *VictoriaMetricsClient) getHistoricalMetricsForContainer(ctx context.Co
 
 	// Query CPU limits
 	cpuLimits, err := vm.queryRangeMetric(ctx,
-		fmt.Sprintf(`kube_pod_container_resource_limits{namespace="%s", pod="%s", container="%s", resource="cpu"}`, 
+		fmt.Sprintf(`kube_pod_container_resource_limits{namespace="%s", pod="%s", container="%s", resource="cpu"}`,
 			namespace, pod, container), start, end)
 	if err != nil {
 		log.Printf("Warning: failed to query CPU limits for %s/%s/%s: %v", namespace, pod, container, err)
@@ -470,7 +471,7 @@ func (vm *VictoriaMetricsClient) getHistoricalMetricsForContainer(ctx context.Co
 
 	// Query Memory limits
 	memLimits, err := vm.queryRangeMetric(ctx,
-		fmt.Sprintf(`kube_pod_container_resource_limits{namespace="%s", pod="%s", container="%s", resource="memory"}`, 
+		fmt.Sprintf(`kube_pod_container_resource_limits{namespace="%s", pod="%s", container="%s", resource="memory"}`,
 			namespace, pod, container), start, end)
 	if err != nil {
 		log.Printf("Warning: failed to query memory limits for %s/%s/%s: %v", namespace, pod, container, err)
@@ -480,7 +481,7 @@ func (vm *VictoriaMetricsClient) getHistoricalMetricsForContainer(ctx context.Co
 	// Analyze the data (reuse existing analysis functions)
 	cpuData := vm.analyzeResourceData(cpuUsage, cpuRequests, cpuLimits)
 	memData := vm.analyzeResourceData(memUsage, memRequests, memLimits)
-	
+
 	analysis := vm.generateUsageAnalysis(cpuData, memData)
 
 	return HistoricalMetrics{
@@ -497,7 +498,7 @@ func (vm *VictoriaMetricsClient) getHistoricalMetricsForContainer(ctx context.Co
 func (vm *VictoriaMetricsClient) GetNamespaces(ctx context.Context) ([]string, error) {
 	// Use container metrics to get namespaces since we don't have kube-state-metrics
 	query := `group by (namespace) (container_cpu_usage_seconds_total{container!="POD", container!=""})`
-	
+
 	result, err := vm.query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query namespaces: %w", err)
@@ -505,7 +506,7 @@ func (vm *VictoriaMetricsClient) GetNamespaces(ctx context.Context) ([]string, e
 
 	var namespaces []string
 	namespacesSet := make(map[string]bool)
-	
+
 	for _, vmResult := range result.Data.Result {
 		namespace := vmResult.Metric["namespace"]
 		if namespace != "" && !namespacesSet[namespace] {
@@ -513,7 +514,7 @@ func (vm *VictoriaMetricsClient) GetNamespaces(ctx context.Context) ([]string, e
 			namespaces = append(namespaces, namespace)
 		}
 	}
-	
+
 	return namespaces, nil
 }
 
@@ -522,102 +523,102 @@ func (vm *VictoriaMetricsClient) query(ctx context.Context, query string) (*VMRe
 	params := url.Values{}
 	params.Set("query", query)
 	params.Set("time", strconv.FormatInt(time.Now().Unix(), 10))
-	
+
 	queryURL := vm.baseURL + "api/v1/query?" + params.Encode()
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", queryURL, nil)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Add Basic Auth if credentials are provided
 	if vm.username != "" && vm.password != "" {
 		req.SetBasicAuth(vm.username, vm.password)
 	}
-	
+
 	resp, err := vm.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("VictoriaMetrics query failed with status %d", resp.StatusCode)
 	}
-	
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var vmResp VMResponse
 	err = json.Unmarshal(body, &vmResp)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if vmResp.Status != "success" {
 		return nil, fmt.Errorf("VictoriaMetrics query failed: %s", vmResp.Status)
 	}
-	
+
 	return &vmResp, nil
 }
 
 // queryRangeMetric executes a range query and returns data points
 func (vm *VictoriaMetricsClient) queryRangeMetric(ctx context.Context, query string, start, end time.Time) ([]DataPoint, error) {
 	step := 5 * time.Minute // 5-minute resolution
-	
+
 	params := url.Values{}
 	params.Set("query", query)
 	params.Set("start", strconv.FormatInt(start.Unix(), 10))
 	params.Set("end", strconv.FormatInt(end.Unix(), 10))
 	params.Set("step", strconv.FormatInt(int64(step.Seconds()), 10))
-	
+
 	queryURL := vm.baseURL + "api/v1/query_range?" + params.Encode()
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", queryURL, nil)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Add Basic Auth if credentials are provided
 	if vm.username != "" && vm.password != "" {
 		req.SetBasicAuth(vm.username, vm.password)
 	}
-	
+
 	resp, err := vm.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("VictoriaMetrics range query failed with status %d", resp.StatusCode)
 	}
-	
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var vmResp VMResponse
 	err = json.Unmarshal(body, &vmResp)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if vmResp.Status != "success" {
 		return nil, fmt.Errorf("VictoriaMetrics range query failed: %s", vmResp.Status)
 	}
 
 	var dataPoints []DataPoint
-	
+
 	for _, series := range vmResp.Data.Result {
 		for _, values := range series.Values {
 			if len(values) >= 2 {
 				timestamp, ok1 := values[0].(float64)
 				valueStr, ok2 := values[1].(string)
-				
+
 				if ok1 && ok2 {
 					value, err := strconv.ParseFloat(valueStr, 64)
 					if err == nil {
@@ -630,7 +631,7 @@ func (vm *VictoriaMetricsClient) queryRangeMetric(ctx context.Context, query str
 			}
 		}
 	}
-	
+
 	return dataPoints, nil
 }
 
@@ -652,7 +653,7 @@ func (vm *VictoriaMetricsClient) analyzeResourceData(usage, requests, limits []D
 	var total, min, max float64
 	min = usage[0].Value
 	max = usage[0].Value
-	
+
 	values := make([]float64, len(usage))
 	for i, point := range usage {
 		values[i] = point.Value
@@ -664,13 +665,13 @@ func (vm *VictoriaMetricsClient) analyzeResourceData(usage, requests, limits []D
 			max = point.Value
 		}
 	}
-	
+
 	average := total / float64(len(usage))
-	
+
 	// Calculate percentiles
 	p95 := vm.calculatePercentile(values, 0.95)
 	p99 := vm.calculatePercentile(values, 0.99)
-	
+
 	// Determine trend
 	trend := vm.calculateTrend(usage)
 
@@ -692,14 +693,14 @@ func (vm *VictoriaMetricsClient) calculatePercentile(values []float64, percentil
 	if len(values) == 0 {
 		return 0
 	}
-	
+
 	// Simple percentile calculation (could be improved with proper sorting)
 	n := len(values)
 	index := int(percentile * float64(n))
 	if index >= n {
 		index = n - 1
 	}
-	
+
 	// For simplicity, return a rough approximation
 	var sum float64
 	count := 0
@@ -709,7 +710,7 @@ func (vm *VictoriaMetricsClient) calculatePercentile(values []float64, percentil
 			count++
 		}
 	}
-	
+
 	if count == 0 {
 		return 0
 	}
@@ -721,12 +722,12 @@ func (vm *VictoriaMetricsClient) calculateTrend(usage []DataPoint) string {
 	if len(usage) < 10 {
 		return "insufficient_data"
 	}
-	
+
 	// Simple trend calculation using first vs last quartile
 	quarterSize := len(usage) / 4
 	firstQuarter := usage[:quarterSize]
 	lastQuarter := usage[len(usage)-quarterSize:]
-	
+
 	var firstSum, lastSum float64
 	for _, point := range firstQuarter {
 		firstSum += point.Value
@@ -734,12 +735,12 @@ func (vm *VictoriaMetricsClient) calculateTrend(usage []DataPoint) string {
 	for _, point := range lastQuarter {
 		lastSum += point.Value
 	}
-	
+
 	firstAvg := firstSum / float64(len(firstQuarter))
 	lastAvg := lastSum / float64(len(lastQuarter))
-	
+
 	diff := (lastAvg - firstAvg) / firstAvg
-	
+
 	if diff > 0.1 { // 10% increase
 		return "increasing"
 	} else if diff < -0.1 { // 10% decrease
@@ -753,7 +754,7 @@ func (vm *VictoriaMetricsClient) generateUsageAnalysis(cpu, memory HistoricalRes
 	analysis := UsageAnalysis{
 		Recommendations: []string{},
 	}
-	
+
 	// Calculate efficiency if requests data is available
 	if len(cpu.Requests) > 0 && len(cpu.Requests[0:]) > 0 {
 		avgRequest := vm.getAverageValue(cpu.Requests)
@@ -761,26 +762,26 @@ func (vm *VictoriaMetricsClient) generateUsageAnalysis(cpu, memory HistoricalRes
 			analysis.CPUEfficiency = (cpu.Average / avgRequest) * 100
 		}
 	}
-	
+
 	if len(memory.Requests) > 0 && len(memory.Requests[0:]) > 0 {
 		avgRequest := vm.getAverageValue(memory.Requests)
 		if avgRequest > 0 {
 			analysis.MemoryEfficiency = (memory.Average / avgRequest) * 100
 		}
 	}
-	
+
 	// Generate waste analysis
 	analysis.ResourceWaste = vm.generateWasteAnalysis(cpu, memory, analysis.CPUEfficiency, analysis.MemoryEfficiency)
-	
+
 	// Generate recommendations
 	analysis.Recommendations = vm.generateRecommendations(cpu, memory, analysis.CPUEfficiency, analysis.MemoryEfficiency)
-	
+
 	// Generate patterns (simplified)
 	analysis.Patterns = UsagePatterns{
 		DailyVariation:  vm.calculateVariation(cpu.Usage),
 		WeeklyVariation: vm.calculateVariation(memory.Usage),
 	}
-	
+
 	return analysis
 }
 
@@ -789,7 +790,7 @@ func (vm *VictoriaMetricsClient) getAverageValue(points []DataPoint) float64 {
 	if len(points) == 0 {
 		return 0
 	}
-	
+
 	var sum float64
 	for _, point := range points {
 		sum += point.Value
@@ -800,7 +801,7 @@ func (vm *VictoriaMetricsClient) getAverageValue(points []DataPoint) float64 {
 // generateWasteAnalysis identifies resource waste
 func (vm *VictoriaMetricsClient) generateWasteAnalysis(cpu, memory HistoricalResourceData, cpuEff, memEff float64) ResourceWasteAnalysis {
 	waste := ResourceWasteAnalysis{}
-	
+
 	// CPU analysis
 	if cpuEff > 0 && cpuEff < 30 {
 		waste.CPUOverProvisioned = true
@@ -808,7 +809,7 @@ func (vm *VictoriaMetricsClient) generateWasteAnalysis(cpu, memory HistoricalRes
 	} else if cpuEff > 80 {
 		waste.CPUUnderProvisioned = true
 	}
-	
+
 	// Memory analysis
 	if memEff > 0 && memEff < 30 {
 		waste.MemoryOverProvisioned = true
@@ -816,38 +817,38 @@ func (vm *VictoriaMetricsClient) generateWasteAnalysis(cpu, memory HistoricalRes
 	} else if memEff > 80 {
 		waste.MemoryUnderProvisioned = true
 	}
-	
+
 	return waste
 }
 
 // generateRecommendations creates actionable recommendations
 func (vm *VictoriaMetricsClient) generateRecommendations(cpu, memory HistoricalResourceData, cpuEff, memEff float64) []string {
 	var recommendations []string
-	
+
 	if cpuEff > 0 && cpuEff < 30 {
 		recommendations = append(recommendations, fmt.Sprintf("Consider reducing CPU requests - current efficiency: %.1f%%", cpuEff))
 	} else if cpuEff > 80 {
 		recommendations = append(recommendations, fmt.Sprintf("Consider increasing CPU requests - current efficiency: %.1f%%", cpuEff))
 	}
-	
+
 	if memEff > 0 && memEff < 30 {
 		recommendations = append(recommendations, fmt.Sprintf("Consider reducing memory requests - current efficiency: %.1f%%", memEff))
 	} else if memEff > 80 {
 		recommendations = append(recommendations, fmt.Sprintf("Consider increasing memory requests - current efficiency: %.1f%%", memEff))
 	}
-	
+
 	if cpu.Trend == "increasing" {
 		recommendations = append(recommendations, "CPU usage is trending upward - monitor for potential scaling needs")
 	}
-	
+
 	if memory.Trend == "increasing" {
 		recommendations = append(recommendations, "Memory usage is trending upward - monitor for potential memory leaks or scaling needs")
 	}
-	
+
 	if len(recommendations) == 0 {
 		recommendations = append(recommendations, "Resource usage appears well-optimized")
 	}
-	
+
 	return recommendations
 }
 
@@ -856,25 +857,25 @@ func (vm *VictoriaMetricsClient) calculateVariation(points []DataPoint) float64 
 	if len(points) < 2 {
 		return 0
 	}
-	
+
 	// Calculate mean
 	var sum float64
 	for _, point := range points {
 		sum += point.Value
 	}
 	mean := sum / float64(len(points))
-	
+
 	if mean == 0 {
 		return 0
 	}
-	
+
 	// Calculate variance
 	var variance float64
 	for _, point := range points {
 		variance += (point.Value - mean) * (point.Value - mean)
 	}
 	variance /= float64(len(points))
-	
+
 	// Return coefficient of variation (std dev / mean)
 	stdDev := variance // Simplified - should be sqrt(variance)
 	return stdDev / mean * 100

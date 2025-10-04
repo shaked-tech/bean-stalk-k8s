@@ -107,7 +107,7 @@ curl http://localhost:8080/api/pods/recommendations?namespace=production
    - CPU limits are generally harmful in Kubernetes
    - Allows pods to burst when cluster resources are available
 
-3. **Safety Bounds**: 
+3. **Safety Bounds**:
    - Minimum: 10m (configurable via `RECOMMENDATIONS_MIN_CPU_REQUEST`)
    - Maximum: 4000m (configurable via `RECOMMENDATIONS_MAX_CPU_REQUEST`)
    - Max scale up: 300% of current request
@@ -174,7 +174,7 @@ You can use the recommendations to generate Kubernetes manifests:
 ```bash
 # Get recommendations and process with jq
 curl -s http://localhost:8080/api/pods/recommendations | \
-  jq -r '.recommendations[] | select(.priority == "high") | 
+  jq -r '.recommendations[] | select(.priority == "high") |
     "Pod: \(.podName) - CPU: \(.cpu.recommendedRequest // "remove"), Memory: \(.memory.recommendedRequest)"'
 ```
 

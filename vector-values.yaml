@@ -80,12 +80,12 @@ customConfig:
         # Add Kubernetes labels and metadata
         .kubernetes.pod_name = .container_name
         .kubernetes.namespace = "default" # Will be enriched by Kubernetes API
-        
+
         # Convert Docker metrics to Prometheus-compatible format
         if exists(.cpu_usage_percent) {
           .container_cpu_usage_seconds_total = .cpu_usage_percent / 100
         }
-        
+
         if exists(.memory_usage_bytes) {
           .container_memory_working_set_bytes = .memory_usage_bytes
         }
@@ -125,7 +125,7 @@ volumeMounts:
   - name: proc
     mountPath: /host/proc
     readOnly: true
-  - name: sys  
+  - name: sys
     mountPath: /host/sys
     readOnly: true
   - name: docker-sock

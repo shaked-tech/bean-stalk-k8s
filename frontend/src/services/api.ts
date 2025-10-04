@@ -110,7 +110,7 @@ const API_BASE_URL = '/api';
 const USE_MOCK_DATA = process.env.REACT_APP_USE_MOCK_DATA === 'true';
 
 // Production safeguard: Force disable mock data in production environment
-const IS_PRODUCTION = process.env.NODE_ENV === 'production' || 
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' ||
                      process.env.REACT_APP_ENV === 'production' ||
                      window.location.hostname !== 'localhost';
 
@@ -351,12 +351,12 @@ export const fetchPodMetrics = async (namespace?: string): Promise<PodMetrics[]>
   if (SAFE_USE_MOCK_DATA) {
     // Simulate API delay for realistic testing
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     // Filter by namespace if provided
-    const filteredPods = namespace 
+    const filteredPods = namespace
       ? MOCK_PODS.filter(pod => pod.namespace === namespace)
       : MOCK_PODS;
-    
+
     return filteredPods;
   }
 
@@ -364,10 +364,10 @@ export const fetchPodMetrics = async (namespace?: string): Promise<PodMetrics[]>
     const url = namespace
       ? `${API_BASE_URL}/pods?namespace=${namespace}`
       : `${API_BASE_URL}/pods`;
-    
+
     const response = await fetch(url);
     const data: PodMetricsList = await response.json();
-    
+
     // Handle null pods case - ensure we always return an array
     return data.pods || [];
   } catch (error) {
@@ -380,26 +380,26 @@ export const fetchPodSummary = async (namespace?: string): Promise<PodSummaryRes
   if (SAFE_USE_MOCK_DATA) {
     // Simulate API delay for realistic testing
     await new Promise(resolve => setTimeout(resolve, 400));
-    
+
     // Filter pods by namespace if provided
-    const filteredPods = namespace 
+    const filteredPods = namespace
       ? MOCK_PODS.filter(pod => pod.namespace === namespace)
       : MOCK_PODS;
-    
+
     // Calculate summary statistics from mock data
     const totalPods = filteredPods.length;
-    const averageCpuUsage = totalPods > 0 
-      ? filteredPods.reduce((sum, pod) => sum + pod.cpu.requestPercentage, 0) / totalPods 
+    const averageCpuUsage = totalPods > 0
+      ? filteredPods.reduce((sum, pod) => sum + pod.cpu.requestPercentage, 0) / totalPods
       : 0;
-    const averageMemoryUsage = totalPods > 0 
-      ? filteredPods.reduce((sum, pod) => sum + pod.memory.requestPercentage, 0) / totalPods 
+    const averageMemoryUsage = totalPods > 0
+      ? filteredPods.reduce((sum, pod) => sum + pod.memory.requestPercentage, 0) / totalPods
       : 0;
-    
+
     const highCpuPods = filteredPods.filter(pod => pod.cpu.requestPercentage > 80).length;
     const highMemoryPods = filteredPods.filter(pod => pod.memory.requestPercentage > 80).length;
     const lowCpuPods = filteredPods.filter(pod => pod.cpu.requestPercentage < 40 && pod.cpu.requestPercentage > 0).length;
     const lowMemoryPods = filteredPods.filter(pod => pod.memory.requestPercentage < 40 && pod.memory.requestPercentage > 0).length;
-    
+
     return {
       totalPods,
       averageCpuUsage,
@@ -416,10 +416,10 @@ export const fetchPodSummary = async (namespace?: string): Promise<PodSummaryRes
     const url = namespace
       ? `${API_BASE_URL}/pods/summary?namespace=${namespace}`
       : `${API_BASE_URL}/pods/summary`;
-    
+
     const response = await fetch(url);
     const data: PodSummaryResponse = await response.json();
-    
+
     return data;
   } catch (error) {
     console.error('Error fetching pod summary:', error);
@@ -431,12 +431,12 @@ export const fetchPodRecommendations = async (namespace?: string): Promise<Recom
   if (SAFE_USE_MOCK_DATA) {
     // Simulate API delay for realistic testing
     await new Promise(resolve => setTimeout(resolve, 600));
-    
+
     // Generate mock recommendations based on pod data
-    const filteredPods = namespace 
+    const filteredPods = namespace
       ? MOCK_PODS.filter(pod => pod.namespace === namespace)
       : MOCK_PODS;
-    
+
     const recommendations: PodResourceRecommendation[] = filteredPods.map(pod => {
       // Determine if pod needs optimization
       const cpuUtilization = pod.cpu.requestPercentage;
@@ -445,10 +445,10 @@ export const fetchPodRecommendations = async (namespace?: string): Promise<Recom
       const hasOptimalMemoryUsage = memoryUtilization >= 60 && memoryUtilization <= 75;
       const hasCpuLimit = pod.cpu.limitValue > 0;
       const memoryMisaligned = Math.abs(pod.memory.requestValue - pod.memory.limitValue) > pod.memory.requestValue * 0.01;
-      
+
       let reasons: string[] = [];
       let priority: 'high' | 'medium' | 'low' = 'low';
-      
+
       // Determine reasons and priority
       if (!hasOptimalCpuUsage) {
         if (cpuUtilization > 75) {
@@ -461,31 +461,31 @@ export const fetchPodRecommendations = async (namespace?: string): Promise<Recom
       } else {
         reasons.push('well_optimized');
       }
-      
+
       if (hasCpuLimit) {
         reasons.push('cpu_limit_present');
         priority = 'high';
       }
-      
+
       if (memoryMisaligned) {
         reasons.push('memory_misaligned');
         priority = priority === 'low' ? 'medium' : priority;
       }
-      
+
       if (!hasOptimalMemoryUsage) {
         if (memoryUtilization > 75) {
           reasons.push('over_utilized');
           priority = 'high';
         } else if (memoryUtilization < 60) {
-          reasons.push('under_utilized');  
+          reasons.push('under_utilized');
           priority = priority === 'low' ? 'medium' : priority;
         }
       }
-      
+
       // Calculate recommended values
       const targetCpuRequest = hasOptimalCpuUsage ? pod.cpu.usageValue : (pod.cpu.usageValue / 0.7);
       const targetMemoryRequest = hasOptimalMemoryUsage ? pod.memory.usageValue : (pod.memory.usageValue / 0.7);
-      
+
       return {
         podName: pod.name,
         namespace: pod.namespace,
@@ -531,7 +531,7 @@ export const fetchPodRecommendations = async (namespace?: string): Promise<Recom
         dataQuality: 'good'
       };
     });
-    
+
     // Generate summary
     const summary: RecommendationsSummary = {
       totalPodsAnalyzed: recommendations.length,
@@ -550,7 +550,7 @@ export const fetchPodRecommendations = async (namespace?: string): Promise<Recom
       memoryMisalignedPods: recommendations.filter(r => r.reasons.includes('memory_misaligned')).length,
       podsMissingRequests: 0
     };
-    
+
     return {
       recommendations,
       summary,
@@ -568,13 +568,13 @@ export const fetchPodRecommendations = async (namespace?: string): Promise<Recom
     const url = namespace
       ? `${API_BASE_URL}/pods/recommendations?namespace=${namespace}`
       : `${API_BASE_URL}/pods/recommendations`;
-    
+
     const response = await fetch(url);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    
+
     const data: RecommendationsResponse = await response.json();
     return data;
   } catch (error) {

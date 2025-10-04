@@ -65,9 +65,9 @@ split_version() {
 increment_version() {
     local current_version=$1
     local increment_type=$2
-    
+
     read -r major minor patch <<< "$(split_version "$current_version")"
-    
+
     case $increment_type in
         patch)
             patch=$((patch + 1))
@@ -86,7 +86,7 @@ increment_version() {
             exit 1
             ;;
     esac
-    
+
     echo "$major.$minor.$patch"
 }
 
@@ -115,10 +115,10 @@ main() {
         usage
         exit 1
     fi
-    
+
     local command=$1
     local deploy_flag=false
-    
+
     # Parse arguments
     shift
     while [[ $# -gt 0 ]]; do
@@ -143,10 +143,10 @@ main() {
                 ;;
         esac
     done
-    
+
     local current_version
     current_version=$(get_current_version)
-    
+
     case $command in
         show)
             echo -e "${BLUE}Current version: ${GREEN}$current_version${NC}"
@@ -156,7 +156,7 @@ main() {
             new_version=$(increment_version "$current_version" "$command")
             echo -e "${BLUE}Updating version: ${YELLOW}$current_version${NC} → ${GREEN}$new_version${NC}"
             update_version "$new_version"
-            
+
             if [[ $deploy_flag == true ]]; then
                 deploy "$new_version"
             fi
@@ -167,11 +167,11 @@ main() {
                 usage
                 exit 1
             fi
-            
+
             validate_version "$version_arg"
             echo -e "${BLUE}Setting version: ${YELLOW}$current_version${NC} → ${GREEN}$version_arg${NC}"
             update_version "$version_arg"
-            
+
             if [[ $deploy_flag == true ]]; then
                 deploy "$version_arg"
             fi

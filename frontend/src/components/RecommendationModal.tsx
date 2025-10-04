@@ -104,7 +104,7 @@ resources:${rec.cpu.recommendedRequest || rec.memory.recommendedRequest ? `
 
   const handleCopyYAML = async () => {
     if (!recommendation) return;
-    
+
     try {
       await navigator.clipboard.writeText(generateYAML(recommendation));
       setCopySuccess(true);
@@ -142,21 +142,21 @@ resources:${rec.cpu.recommendedRequest || rec.memory.recommendedRequest ? `
 
   const getStatusText = (rec?: PodResourceRecommendation) => {
     if (!rec) return { text: 'Loading...', color: 'default' as const };
-    
+
     const isOptimized = rec.reasons.includes('well_optimized') && rec.reasons.length === 1;
-    
+
     if (isOptimized) {
       return { text: 'Well Optimized', color: 'success' as const };
     }
-    
-    const hasMinorIssues = rec.reasons.some(r => 
+
+    const hasMinorIssues = rec.reasons.some(r =>
       r === 'cpu_limit_present' || r === 'memory_misaligned'
     );
-    
+
     if (hasMinorIssues && rec.priority === 'medium') {
       return { text: 'Minor Issues', color: 'warning' as const };
     }
-    
+
     return { text: 'Needs Optimization', color: 'error' as const };
   };
 
@@ -174,25 +174,25 @@ resources:${rec.cpu.recommendedRequest || rec.memory.recommendedRequest ? `
       'missing_requests': 'Missing Resource Requests',
       'missing_limits': 'Missing Resource Limits'
     };
-    
+
     return reasonMap[reason] || reason.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   const statusInfo = getStatusText(recommendation);
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={onClose} 
-      maxWidth="md" 
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
       fullWidth
       PaperProps={{
         sx: { minHeight: '500px' }
       }}
     >
-      <DialogTitle sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+      <DialogTitle sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'center',
         pb: 1
       }}>
@@ -280,10 +280,10 @@ resources:${rec.cpu.recommendedRequest || rec.memory.recommendedRequest ? `
             {/* YAML Tab */}
             <TabPanel value={tabValue} index={0}>
               <Box sx={{ position: 'relative' }}>
-                <Paper 
-                  sx={{ 
-                    p: 2, 
-                    bgcolor: 'grey.50', 
+                <Paper
+                  sx={{
+                    p: 2,
+                    bgcolor: 'grey.50',
                     fontFamily: 'monospace',
                     position: 'relative',
                     maxHeight: '400px',
@@ -293,9 +293,9 @@ resources:${rec.cpu.recommendedRequest || rec.memory.recommendedRequest ? `
                   <Tooltip title={copySuccess ? "Copied!" : "Copy YAML"}>
                     <IconButton
                       onClick={handleCopyYAML}
-                      sx={{ 
-                        position: 'absolute', 
-                        top: 8, 
+                      sx={{
+                        position: 'absolute',
+                        top: 8,
                         right: 8,
                         bgcolor: 'background.paper',
                         '&:hover': { bgcolor: 'grey.100' }
@@ -305,9 +305,9 @@ resources:${rec.cpu.recommendedRequest || rec.memory.recommendedRequest ? `
                       <CopyIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
-                  <pre style={{ 
-                    margin: 0, 
-                    fontSize: '0.875rem', 
+                  <pre style={{
+                    margin: 0,
+                    fontSize: '0.875rem',
                     whiteSpace: 'pre-wrap',
                     paddingRight: '40px'
                   }}>
@@ -338,7 +338,7 @@ resources:${rec.cpu.recommendedRequest || rec.memory.recommendedRequest ? `
                   <Typography variant="body2" sx={{ ml: 2, mb: 1 }}>
                     Usage: {recommendation.cpu.currentUsage} ({Math.round(recommendation.cpu.currentUtilization)}%)
                   </Typography>
-                  
+
                   <Typography variant="body2" gutterBottom sx={{ mt: 2 }}>
                     <strong>Memory:</strong>
                   </Typography>
@@ -373,7 +373,7 @@ resources:${rec.cpu.recommendedRequest || rec.memory.recommendedRequest ? `
                       Change: {recommendation.cpu.percentageChange > 0 ? '+' : ''}{Math.round(recommendation.cpu.percentageChange)}%
                     </Typography>
                   )}
-                  
+
                   <Typography variant="body2" gutterBottom sx={{ mt: 2 }}>
                     <strong>Memory:</strong>
                   </Typography>
@@ -439,8 +439,8 @@ resources:${rec.cpu.recommendedRequest || rec.memory.recommendedRequest ? `
           Close
         </Button>
         {recommendation && (
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             startIcon={<CopyIcon />}
             onClick={handleCopyYAML}
             disabled={copySuccess}
