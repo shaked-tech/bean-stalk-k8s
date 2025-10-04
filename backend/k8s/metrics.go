@@ -24,8 +24,10 @@ type MetricsClient interface {
 
 // MetricsClientConfig contains configuration for metrics clients
 type MetricsClientConfig struct {
-	Backend string // "prometheus" or "vmagent"
-	URL     string // Connection URL for the metrics backend
+	Backend  string // "prometheus" or "vmagent"
+	URL      string // Connection URL for the metrics backend
+	Username string // Optional username for Basic Authentication
+	Password string // Optional password for Basic Authentication
 }
 
 // MetricsClientFactory creates metrics clients based on configuration
@@ -40,11 +42,11 @@ func NewMetricsClientFactory() *MetricsClientFactory {
 func (f *MetricsClientFactory) CreateClient(config MetricsClientConfig) (MetricsClient, error) {
 	switch config.Backend {
 	case "prometheus":
-		return NewPrometheusClient(config.URL)
+		return NewPrometheusClient(config.URL, config.Username, config.Password)
 	case "victoriametrics":
-		return NewVictoriaMetricsClient(config.URL)
+		return NewVictoriaMetricsClient(config.URL, config.Username, config.Password)
 	default:
 		// Default to Prometheus for backward compatibility
-		return NewPrometheusClient(config.URL)
+		return NewPrometheusClient(config.URL, config.Username, config.Password)
 	}
 }
