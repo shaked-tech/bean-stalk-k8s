@@ -264,27 +264,27 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
     const hasCpuLimit = pod.cpu.limitValue > 0;
     const memoryMisaligned = Math.abs(pod.memory.requestValue - pod.memory.limitValue) > pod.memory.requestValue * 0.01;
 
-    // Over-utilized pods (red)
-    const hasHighRiskIssues = cpuUtilization > 75 || memoryUtilization > 75 || hasCpuLimit;
+    // Check utilization FIRST (highest priority) - ONLY based on actual utilization
+    const isOverUtilized = cpuUtilization > 75 || memoryUtilization > 75;
+    const isUnderUtilized = cpuUtilization < 60 || memoryUtilization < 60;
     
-    if (hasHighRiskIssues) {
+    // Over-utilized pods (red) - ONLY when utilization is actually high
+    if (isOverUtilized) {
       return { status: 'high_risk', color: 'error' as const, text: '🚨 Over Utilized', icon: <ErrorIcon /> };
     }
 
-    // Optimized pods = LOW RISK (green)
+    // Optimized pods (green) - good utilization, no CPU limits, memory aligned
     if (hasOptimalCpuUsage && hasOptimalMemoryUsage && !hasCpuLimit && !memoryMisaligned) {
       return { status: 'optimized', color: 'success' as const, text: '✅ Optimized', icon: <OptimizedIcon /> };
     }
 
-    // Under-utilized pods = LOW RISK (blue)
-    const isUnderUtilized = cpuUtilization < 60 || memoryUtilization < 60;
-    
+    // Under-utilized pods (blue) - low utilization
     if (isUnderUtilized) {
       return { status: 'low_risk', color: 'info' as const, text: '📉 Under-utilized', icon: <OptimizedIcon /> };
     }
 
-    // Memory misalignment only = MEDIUM RISK (yellow)
-    if (memoryMisaligned) {
+    // Minor issues (yellow) - has CPU limit or memory misalignment but utilization is OK
+    if (hasCpuLimit || memoryMisaligned) {
       return { status: 'minor_issues', color: 'warning' as const, text: '⚠️ Minor Issues', icon: <WarningIcon /> };
     }
 
