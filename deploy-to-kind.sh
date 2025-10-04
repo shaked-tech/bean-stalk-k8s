@@ -167,8 +167,8 @@ fi
 echo -e "${YELLOW}Adding metrics-server repository for real-time metrics...${NC}"
 helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/ >/dev/null 2>&1 || true
 
-echo -e "${YELLOW}Updating Helm repositories...${NC}"
-helm repo update >/dev/null 2>&1
+# echo -e "${YELLOW}Updating Helm repositories...${NC}"
+# helm repo update >/dev/null 2>&1
 
 echo -e "${GREEN}✅ Helm repositories configured successfully${NC}"
 

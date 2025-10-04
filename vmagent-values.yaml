@@ -1,8 +1,9 @@
 # vmagent Configuration with proper scraping for kube-state-metrics
 
 # Remote write URLs - this is the critical required field
+# Authentication is embedded in the URL using http://username:password@host format
 remoteWrite:
-  - url: http://victoria-metrics-victoria-metrics-cluster-vminsert.monitoring.svc.cluster.local:8480/insert/0/prometheus/
+  - url: http://vmuser:vmpassword@victoria-metrics-victoria-metrics-cluster-vminsert.monitoring.svc.cluster.local:8480/insert/0/prometheus/
 
 # Enable RBAC for service discovery
 rbac:

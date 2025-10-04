@@ -33,17 +33,61 @@ METRICS_PROMETHEUS_URL=http://my-prometheus.monitoring.svc.cluster.local:9090
 METRICS_PROMETHEUS_URL=https://prometheus.example.com
 ```
 
-### METRICS_VMAGENT_URL
-**Default:** `http://victoria-metrics-victoria-metrics-cluster-vmselect.pod-metrics-dashboard.svc.cluster.local.:8481/select/0/prometheus`  
+### METRICS_VICTORIAMETRICS_URL
+**Default:** `http://victoria-metrics-victoria-metrics-cluster-vmselect.pod-metrics-dashboard.svc.cluster.local:8481/select/0/prometheus`  
 **Description:** URL for connecting to VictoriaMetrics/VAgent server.
 
 **Examples:**
 ```bash
 # Custom VictoriaMetrics URL
-METRICS_VMAGENT_URL=http://victoria-metrics.monitoring.svc.cluster.local:8481/select/0/prometheus
+METRICS_VICTORIAMETRICS_URL=http://victoria-metrics.monitoring.svc.cluster.local:8481/select/0/prometheus
 
 # External VictoriaMetrics
-METRICS_VMAGENT_URL=https://vmagent.example.com/prometheus
+METRICS_VICTORIAMETRICS_URL=https://vmagent.example.com/prometheus
+```
+
+### METRICS_VICTORIAMETRICS_USERNAME
+**Default:** `` (empty - authentication disabled)  
+**Description:** Optional username for Basic Authentication with VictoriaMetrics.
+
+**Examples:**
+```bash
+# Enable authentication
+METRICS_VICTORIAMETRICS_USERNAME=admin
+METRICS_VICTORIAMETRICS_PASSWORD=secret123
+```
+
+### METRICS_VICTORIAMETRICS_PASSWORD
+**Default:** `` (empty - authentication disabled)  
+**Description:** Optional password for Basic Authentication with VictoriaMetrics. Must be used with METRICS_VICTORIAMETRICS_USERNAME.
+
+**Examples:**
+```bash
+# Enable authentication
+METRICS_VICTORIAMETRICS_USERNAME=admin
+METRICS_VICTORIAMETRICS_PASSWORD=secret123
+```
+
+### METRICS_PROMETHEUS_USERNAME
+**Default:** `` (empty - authentication disabled)  
+**Description:** Optional username for Basic Authentication with Prometheus.
+
+**Examples:**
+```bash
+# Enable authentication
+METRICS_PROMETHEUS_USERNAME=admin
+METRICS_PROMETHEUS_PASSWORD=secret456
+```
+
+### METRICS_PROMETHEUS_PASSWORD
+**Default:** `` (empty - authentication disabled)  
+**Description:** Optional password for Basic Authentication with Prometheus. Must be used with METRICS_PROMETHEUS_USERNAME.
+
+**Examples:**
+```bash
+# Enable authentication
+METRICS_PROMETHEUS_USERNAME=admin
+METRICS_PROMETHEUS_PASSWORD=secret456
 ```
 
 ## Legacy Support (Backward Compatibility)

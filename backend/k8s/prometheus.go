@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+"github.com/bean-stalk-k8s/backend/utils"
+	"net/http"
 	"time"
 
 	"github.com/prometheus/client_golang/api"
@@ -11,15 +13,43 @@ import (
 	"github.com/prometheus/common/model"
 )
 
+// BasicAuthRoundTripper adds Basic Authentication to HTTP requests
+type BasicAuthRoundTripper struct {
+	username string
+	password string
+	next     http.RoundTripper
+}
+
+// RoundTrip implements the http.RoundTripper interface
+func (rt *BasicAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Add Basic Auth if credentials are provided
+	if rt.username != "" && rt.password != "" {
+		req.SetBasicAuth(rt.username, rt.password)
+	}
+	return rt.next.RoundTrip(req)
+}
+
 // PrometheusClient wraps the Prometheus API client
 type PrometheusClient struct {
 	client v1.API
 }
 
 // NewPrometheusClient creates a new Prometheus client
-func NewPrometheusClient(prometheusURL string) (*PrometheusClient, error) {
+func NewPrometheusClient(prometheusURL, username, password string) (*PrometheusClient, error) {
 	config := api.Config{
 		Address: prometheusURL,
+	}
+	
+	// Add Basic Auth if credentials are provided
+	if username != "" && password != "" {
+		log.Printf("INFO: Prometheus client configured with Basic Authentication")
+		config.RoundTripper = &BasicAuthRoundTripper{
+			username: username,
+			password: password,
+			next:     api.DefaultRoundTripper,
+		}
+	} else {
+		log.Printf("INFO: Prometheus client configured without authentication")
 	}
 
 	client, err := api.NewClient(config)
@@ -576,6 +606,7 @@ type PodMetric struct {
 
 // GetCurrentPodMetrics retrieves current pod metrics from Prometheus
 func (p *PrometheusClient) GetCurrentPodMetrics(ctx context.Context, namespace string) ([]PodMetric, error) {
+	utils.Info("Querying Prometheus for pod metrics (namespace: %s)", namespace)
 	var pods []PodMetric
 	
 	// Build namespace filter
@@ -592,7 +623,7 @@ func (p *PrometheusClient) GetCurrentPodMetrics(ctx context.Context, namespace s
 	cpuQuery += `}[5m])`
 	
 	// DEBUG: Log the exact CPU query being executed
-	log.Printf("DEBUG: Executing CPU query: %s", cpuQuery)
+	utils.Debug("Executing CPU query: %s", cpuQuery)
 	
 	cpuResult, warnings, err := p.client.Query(ctx, cpuQuery, time.Now())
 	if err != nil {
@@ -610,7 +641,7 @@ func (p *PrometheusClient) GetCurrentPodMetrics(ctx context.Context, namespace s
 	memQuery += `}`
 	
 	// DEBUG: Log the exact memory query being executed
-	log.Printf("DEBUG: Executing Memory query: %s", memQuery)
+	utils.Debug("Executing Memory query: %s", memQuery)
 	
 	memResult, warnings, err := p.client.Query(ctx, memQuery, time.Now())
 	if err != nil {
@@ -653,7 +684,7 @@ func (p *PrometheusClient) GetCurrentPodMetrics(ctx context.Context, namespace s
 			
 			// DEBUG: Log raw memory values from Prometheus
 			memoryBytes := float64(sample.Value)
-			log.Printf("DEBUG: Raw memory for %s: %.0f bytes (%.2f Mi)", 
+			utils.Debug("Raw memory for %s: %.0f bytes (%.2f Mi)", 
 				key, memoryBytes, memoryBytes/(1024*1024))
 			
 			if _, exists := podMetrics[key]; !exists {
