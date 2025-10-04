@@ -12,6 +12,7 @@ import (
 	"github.com/bean-stalk-k8s/backend/k8s"
 	"github.com/bean-stalk-k8s/backend/models"
 	"github.com/bean-stalk-k8s/backend/recommendations"
+	"github.com/bean-stalk-k8s/backend/utils"
 )
 
 // Handler contains metrics client for unified data access
@@ -26,21 +27,32 @@ func NewHandler() (*Handler, error) {
 	
 	// Get metrics URL based on backend with support for new and legacy env vars
 	var metricsURL string
+	var username, password string
+	
 	switch backend {
 	case "victoriametrics":
 		// Try new env var first, then legacy, then default
 		metricsURL = getEnvWithDefault("METRICS_VICTORIAMETRICS_URL", 
 			getEnvWithDefault("VICTORIAMETRICS_URL", 
 				"http://victoria-metrics-victoria-metrics-cluster-vmselect.pod-metrics-dashboard.svc.cluster.local:8481/select/0/prometheus"))
+		// Get optional credentials for VictoriaMetrics
+		username = getEnvWithDefault("METRICS_VICTORIAMETRICS_USERNAME", "")
+		password = getEnvWithDefault("METRICS_VICTORIAMETRICS_PASSWORD", "")
 	case "prometheus":
 		// Try new env var first, then legacy, then default  
 		metricsURL = getEnvWithDefault("METRICS_PROMETHEUS_URL",
 			getEnvWithDefault("PROMETHEUS_URL",
 				"http://prometheus-stack-kube-prom-prometheus.pod-metrics-dashboard.svc.cluster.local:9090"))
+		// Get optional credentials for Prometheus
+		username = getEnvWithDefault("METRICS_PROMETHEUS_USERNAME", "")
+		password = getEnvWithDefault("METRICS_PROMETHEUS_PASSWORD", "")
 	default: // fallback to victoriametrics
 		metricsURL = getEnvWithDefault("METRICS_VICTORIAMETRICS_URL",
 			getEnvWithDefault("VICTORIAMETRICS_URL",
 				"http://victoria-metrics-victoria-metrics-cluster-vmselect.pod-metrics-dashboard.svc.cluster.local:8481/select/0/prometheus"))
+		// Get optional credentials for VictoriaMetrics
+		username = getEnvWithDefault("METRICS_VICTORIAMETRICS_USERNAME", "")
+		password = getEnvWithDefault("METRICS_VICTORIAMETRICS_PASSWORD", "")
 	}
 
 	// Read advanced configuration from environment variables
@@ -53,8 +65,10 @@ func NewHandler() (*Handler, error) {
 	// Create metrics client using factory
 	factory := k8s.NewMetricsClientFactory()
 	config := k8s.MetricsClientConfig{
-		Backend: backend,
-		URL:     metricsURL,
+		Backend:  backend,
+		URL:      metricsURL,
+		Username: username,
+		Password: password,
 	}
 
 	metricsClient, err := factory.CreateClient(config)
@@ -62,9 +76,16 @@ func NewHandler() (*Handler, error) {
 		return nil, fmt.Errorf("failed to create %s client: %w", backend, err)
 	}
 
+	// Log configuration (mask password for security)
+	authStatus := "disabled"
+	if username != "" && password != "" {
+		authStatus = "enabled"
+	}
+	
 	log.Printf("INFO: Metrics configuration loaded:")
 	log.Printf("  - Backend: %s", backend)
 	log.Printf("  - URL: %s", metricsURL)
+	log.Printf("  - Authentication: %s", authStatus)
 	log.Printf("  - Timeout: %s", timeout)
 	log.Printf("  - Retry Attempts: %d", retryAttempts)
 	log.Printf("  - Features: Caching=%v, Historical=%v, Trend=%v", enableCaching, enableHistorical, enableTrend)
@@ -473,7 +494,7 @@ func formatCPU(cpuCores float64) string {
 // Helper function to format memory values (bytes to human readable)
 func formatMemory(bytes float64) string {
 	// DEBUG: Log memory conversion
-	log.Printf("DEBUG: formatMemory input: %.0f bytes", bytes)
+	utils.Debug("formatMemory input: %.0f bytes", bytes)
 	
 	if bytes == 0 {
 		return "0Mi"
@@ -497,7 +518,7 @@ func formatMemory(bytes float64) string {
 	}
 	
 	// DEBUG: Log conversion result
-	log.Printf("DEBUG: formatMemory output: %s (%.2f Mi)", result, bytes/MB)
+	utils.Debug("formatMemory output: %s (%.2f Mi)", result, bytes/MB)
 	
 	return result
 }

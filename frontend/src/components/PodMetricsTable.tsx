@@ -264,11 +264,11 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
     const hasCpuLimit = pod.cpu.limitValue > 0;
     const memoryMisaligned = Math.abs(pod.memory.requestValue - pod.memory.limitValue) > pod.memory.requestValue * 0.01;
 
-    // Over-utilized pods = HIGH RISK (red)
+    // Over-utilized pods (red)
     const hasHighRiskIssues = cpuUtilization > 75 || memoryUtilization > 75 || hasCpuLimit;
     
     if (hasHighRiskIssues) {
-      return { status: 'high_risk', color: 'error' as const, text: '🚨 High Risk', icon: <ErrorIcon /> };
+      return { status: 'high_risk', color: 'error' as const, text: '🚨 Over Utilized', icon: <ErrorIcon /> };
     }
 
     // Optimized pods = LOW RISK (green)

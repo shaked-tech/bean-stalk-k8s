@@ -1,0 +1,4 @@
+basic_auth_users:
+  promuser: $2y$10$gHMy1WpZX4sTCtzZaLjo5uXsmCHoX6kKyNSM0eRonwZWMO71oS.kK
+# Password is: prompassword
+# Generated with: htpasswd -nBC 10 promuser

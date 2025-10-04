@@ -3,6 +3,7 @@ package recommendations
 import (
 	"fmt"
 	"log"
+"github.com/bean-stalk-k8s/backend/utils"
 	"math"
 	"regexp"
 	"strconv"
@@ -100,7 +101,7 @@ func (e *RecommendationEngine) generatePodRecommendation(current k8s.PodMetric) 
 func (e *RecommendationEngine) generateCPURecommendationFromCurrent(currentUsage, currentRequest, currentLimit float64) (models.ResourceRecommendation, []models.RecommendationReason) {
 	var reasons []models.RecommendationReason
 	
-	log.Printf("DEBUG: CPU analysis - Usage: %.4f, Request: %.4f, Limit: %.4f", currentUsage, currentRequest, currentLimit)
+	utils.Debug("CPU analysis - Usage: %.4f, Request: %.4f, Limit: %.4f", currentUsage, currentRequest, currentLimit)
 	
 	// Calculate target request to achieve desired utilization (currentUsage / targetUtilization)
 	var targetRequest float64
@@ -121,10 +122,10 @@ func (e *RecommendationEngine) generateCPURecommendationFromCurrent(currentUsage
 		maxAllowedDecrease := currentRequest * e.config.MaxScaleDownFactor
 		
 		if targetRequest > maxAllowedIncrease {
-			log.Printf("DEBUG: CPU target %.4f limited by max scale up %.4f", targetRequest, maxAllowedIncrease)
+			utils.Debug("CPU target %.4f limited by max scale up %.4f", targetRequest, maxAllowedIncrease)
 			targetRequest = maxAllowedIncrease
 		} else if targetRequest < maxAllowedDecrease {
-			log.Printf("DEBUG: CPU target %.4f limited by max scale down %.4f", targetRequest, maxAllowedDecrease)
+			utils.Debug("CPU target %.4f limited by max scale down %.4f", targetRequest, maxAllowedDecrease)
 			targetRequest = maxAllowedDecrease
 		}
 	}
@@ -136,7 +137,7 @@ func (e *RecommendationEngine) generateCPURecommendationFromCurrent(currentUsage
 		targetRequest = maxCPU
 	}
 	
-	log.Printf("DEBUG: CPU final target request: %.4f", targetRequest)
+	utils.Debug("CPU final target request: %.4f", targetRequest)
 	
 	// Determine current utilization
 	currentUtilization := 0.0
@@ -207,7 +208,7 @@ func (e *RecommendationEngine) generateCPURecommendationFromCurrent(currentUsage
 func (e *RecommendationEngine) generateMemoryRecommendationFromCurrent(currentUsage, currentRequest, currentLimit float64) (models.ResourceRecommendation, []models.RecommendationReason) {
 	var reasons []models.RecommendationReason
 	
-	log.Printf("DEBUG: Memory analysis - Usage: %.0f bytes (%.0f Mi), Request: %.0f bytes (%.0f Mi), Limit: %.0f bytes (%.0f Mi)", 
+	utils.Debug("Memory analysis - Usage: %.0f bytes (%.0f Mi), Request: %.0f bytes (%.0f Mi), Limit: %.0f bytes (%.0f Mi)", 
 		currentUsage, currentUsage/(1024*1024), currentRequest, currentRequest/(1024*1024), currentLimit, currentLimit/(1024*1024))
 	
 	// SIMPLIFIED CALCULATION: currentUsage / targetUtilization
@@ -266,7 +267,7 @@ func (e *RecommendationEngine) generateMemoryRecommendationFromCurrent(currentUs
 		log.Printf("STEP 1 - No memory usage data, using default minimum: %.0f bytes (%.0f Mi)", targetRequest, targetRequest/(1024*1024))
 	}
 	
-	log.Printf("DEBUG: Memory final target request: %.0f bytes (%.0f Mi)", targetRequest, targetRequest/(1024*1024))
+	utils.Debug("Memory final target request: %.0f bytes (%.0f Mi)", targetRequest, targetRequest/(1024*1024))
 	
 	// For memory: requests should equal limits
 	targetLimit := targetRequest
@@ -290,7 +291,7 @@ func (e *RecommendationEngine) generateMemoryRecommendationFromCurrent(currentUs
 		// Use a meaningful baseline (like 1Mi = 1048576 bytes) to calculate percentage
 		baselineRequest := float64(1048576) // 1Mi baseline for percentage calculation
 		percentageChange = (targetRequest / baselineRequest) * 100
-		log.Printf("DEBUG: Pod has no current memory request, using calculated target: %.0f bytes (%.0f Mi), %% change: %.1f%%", targetRequest, targetRequest/(1024*1024), percentageChange)
+		utils.Debug("Pod has no current memory request, using calculated target: %.0f bytes (%.0f Mi), %% change: %.1f%%", targetRequest, targetRequest/(1024*1024), percentageChange)
 	} else {
 		// Normal percentage calculation for pods with current requests
 		percentageChange = ((targetRequest - currentRequest) / currentRequest) * 100
@@ -334,13 +335,13 @@ func (e *RecommendationEngine) generateMemoryRecommendationFromCurrent(currentUs
 		log.Printf("ERROR: Target request was 0 but should be %.0f bytes (%.0f Mi) - FIXED!", targetRequest, targetRequest/(1024*1024))
 	}
 	
-	log.Printf("DEBUG: About to format memory - targetRequest: %.0f bytes (%.0f Mi)", targetRequest, targetRequest/(1024*1024))
+	utils.Debug("About to format memory - targetRequest: %.0f bytes (%.0f Mi)", targetRequest, targetRequest/(1024*1024))
 	
 	// Format recommended values
 	recommendedRequestStr := e.formatMemoryValue(targetRequest)
 	recommendedLimitStr := e.formatMemoryValue(targetLimit)
 	
-	log.Printf("DEBUG: Formatted memory recommendation: %s (from %.0f bytes)", recommendedRequestStr, targetRequest)
+	utils.Debug("Formatted memory recommendation: %s (from %.0f bytes)", recommendedRequestStr, targetRequest)
 	
 	recommendation := models.ResourceRecommendation{
 		CurrentRequest:          e.formatMemoryValue(currentRequest),
@@ -599,12 +600,12 @@ func (e *RecommendationEngine) calculatePriority(reasons []models.Recommendation
 
 // assessRiskLevel determines the risk of applying recommendations
 func (e *RecommendationEngine) assessRiskLevel(cpu, memory models.ResourceRecommendation) string {
-	// High risk if significant increases
+	// Over-utilized if significant increases
 	if cpu.PercentageChange > 100 || memory.PercentageChange > 100 {
 		return "high"
 	}
 	
-	// High risk if removing limits on heavily utilized resources
+	// Over-utilized if removing limits on heavily utilized resources
 	if cpu.ResourceChange == "remove_limit" && cpu.CurrentUtilization > 80 {
 		return "high"
 	}

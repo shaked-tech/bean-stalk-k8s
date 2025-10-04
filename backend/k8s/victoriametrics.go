@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+"github.com/bean-stalk-k8s/backend/utils"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -15,19 +16,30 @@ import (
 
 // VictoriaMetricsClient wraps the VictoriaMetrics API client
 type VictoriaMetricsClient struct {
-	baseURL string
-	client  *http.Client
+	baseURL  string
+	client   *http.Client
+	username string
+	password string
 }
 
 // NewVictoriaMetricsClient creates a new VictoriaMetrics client
-func NewVictoriaMetricsClient(vmSelectURL string) (*VictoriaMetricsClient, error) {
+func NewVictoriaMetricsClient(vmSelectURL, username, password string) (*VictoriaMetricsClient, error) {
 	// Ensure the URL ends with the API path
 	if !strings.HasSuffix(vmSelectURL, "/") {
 		vmSelectURL += "/"
 	}
 	
+	// Log authentication status
+	if username != "" && password != "" {
+		log.Printf("INFO: VictoriaMetrics client configured with Basic Authentication")
+	} else {
+		log.Printf("INFO: VictoriaMetrics client configured without authentication")
+	}
+	
 	return &VictoriaMetricsClient{
-		baseURL: vmSelectURL,
+		baseURL:  vmSelectURL,
+		username: username,
+		password: password,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -66,6 +78,7 @@ type VMResult struct {
 
 // GetCurrentPodMetrics retrieves current pod metrics from VictoriaMetrics
 func (vm *VictoriaMetricsClient) GetCurrentPodMetrics(ctx context.Context, namespace string) ([]PodMetric, error) {
+utils.Info("Querying VictoriaMetrics for pod metrics (namespace: %s)", namespace)
 	var pods []PodMetric
 	
 	// Build namespace filter
@@ -115,13 +128,13 @@ func (vm *VictoriaMetricsClient) GetCurrentPodMetrics(ctx context.Context, names
 	var cpuErr error
 	
 	for i, cpuQuery := range cpuQueries {
-		log.Printf("DEBUG: Executing CPU query (attempt %d): %s", i+1, cpuQuery)
+		utils.Debug("Executing CPU query (attempt %d): %s", i+1, cpuQuery)
 		cpuResult, cpuErr = vm.query(ctx, cpuQuery)
 		if cpuErr == nil && len(cpuResult.Data.Result) > 0 {
-			log.Printf("DEBUG: CPU query successful with %d results", len(cpuResult.Data.Result))
+			utils.Debug("CPU query successful with %d results", len(cpuResult.Data.Result))
 			break
 		}
-		log.Printf("DEBUG: CPU query attempt %d failed or returned no results: %v", i+1, cpuErr)
+		utils.Debug("CPU query attempt %d failed or returned no results: %v", i+1, cpuErr)
 	}
 	
 	if cpuErr != nil {
@@ -135,7 +148,7 @@ func (vm *VictoriaMetricsClient) GetCurrentPodMetrics(ctx context.Context, names
 	}
 	memQuery += `}`
 	
-	log.Printf("DEBUG: Executing Memory query: %s", memQuery)
+	utils.Debug("Executing Memory query: %s", memQuery)
 	
 	memResult, err := vm.query(ctx, memQuery)
 	if err != nil {
@@ -190,7 +203,7 @@ func (vm *VictoriaMetricsClient) GetCurrentPodMetrics(ctx context.Context, names
 			if val, ok := result.Value[1].(string); ok {
 				if memUsage, err := strconv.ParseFloat(val, 64); err == nil {
 					podMetrics[key].MemoryUsage = memUsage
-					log.Printf("DEBUG: Raw memory for %s: %.0f bytes (%.2f Mi)",
+					utils.Debug("Raw memory for %s: %.0f bytes (%.2f Mi)",
 						key, memUsage, memUsage/(1024*1024))
 				}
 			}
@@ -517,6 +530,11 @@ func (vm *VictoriaMetricsClient) query(ctx context.Context, query string) (*VMRe
 		return nil, err
 	}
 	
+	// Add Basic Auth if credentials are provided
+	if vm.username != "" && vm.password != "" {
+		req.SetBasicAuth(vm.username, vm.password)
+	}
+	
 	resp, err := vm.client.Do(req)
 	if err != nil {
 		return nil, err
@@ -560,6 +578,11 @@ func (vm *VictoriaMetricsClient) queryRangeMetric(ctx context.Context, query str
 	req, err := http.NewRequestWithContext(ctx, "GET", queryURL, nil)
 	if err != nil {
 		return nil, err
+	}
+	
+	// Add Basic Auth if credentials are provided
+	if vm.username != "" && vm.password != "" {
+		req.SetBasicAuth(vm.username, vm.password)
 	}
 	
 	resp, err := vm.client.Do(req)

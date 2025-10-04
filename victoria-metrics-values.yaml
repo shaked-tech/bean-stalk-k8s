@@ -1,0 +1,57 @@
+# Victoria Metrics Cluster Configuration with Basic Authentication
+
+# VMSelect configuration (query component)
+vmselect:
+  enabled: true
+  replicaCount: 2
+  
+  # Enable Basic Authentication for vmselect
+  extraArgs:
+    envflag.enable: "true"
+    envflag.prefix: VM_
+    loggerFormat: json
+  
+  env:
+    - name: VM_httpAuth.username
+      value: "vmuser"
+    - name: VM_httpAuth.password
+      value: "vmpassword"
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 200Mi
+    limits:
+      cpu: 500m
+      memory: 500Mi
+
+# VMInsert configuration (write component)
+vminsert:
+  enabled: true
+  replicaCount: 2
+  
+  # Enable Basic Authentication for vminsert
+  extraArgs:
+    envflag.enable: "true"
+    envflag.prefix: VM_
+    loggerFormat: json
+  
+  env:
+    - name: VM_httpAuth.username
+      value: "vmuser"
+    - name: VM_httpAuth.password
+      value: "vmpassword"
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 200Mi
+    limits:
+      cpu: 500m
+      memory: 500Mi
+
+# VMStorage configuration (storage component)
+# Note: Not adding auth to vmstorage as it's internal and accessed by vmselect/vminsert
+vmstorage:
+  enabled: true
+  replicaCount: 2
