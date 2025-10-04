@@ -124,13 +124,18 @@ type RecommendationsResponse struct {
 
 // RecommendationConfig contains configuration for the recommendation engine
 type RecommendationConfig struct {
-	TargetCPUUtilization    float64 `json:"targetCpuUtilization"`    // Default: 70%
-	TargetMemoryUtilization float64 `json:"targetMemoryUtilization"` // Default: 70%
+	// Buffer percentages - simple headroom above current usage
+	CPUBufferPercentage    float64 `json:"cpuBufferPercentage"`    // Default: 30% (gives 30% headroom)
+	MemoryBufferPercentage float64 `json:"memoryBufferPercentage"` // Default: 20% (gives 20% headroom)
+	
+	// Legacy fields for backward compatibility (deprecated)
+	TargetCPUUtilization    float64 `json:"targetCpuUtilization,omitempty"`    // Deprecated: use CPUBufferPercentage
+	TargetMemoryUtilization float64 `json:"targetMemoryUtilization,omitempty"` // Deprecated: use MemoryBufferPercentage
 	
 	// Safety bounds
 	MinCPURequest       string `json:"minCpuRequest"`       // e.g., "10m"
 	MaxCPURequest       string `json:"maxCpuRequest"`       // e.g., "4000m"
-	MinMemoryRequest    string `json:"minMemoryRequest"`    // e.g., "64Mi"
+	MinMemoryRequest    string `json:"minMemoryRequest"`    // e.g., "16Mi"
 	MaxMemoryRequest    string `json:"maxMemoryRequest"`    // e.g., "8Gi"
 	
 	// Scaling limits
@@ -150,11 +155,11 @@ type RecommendationConfig struct {
 // DefaultRecommendationConfig returns sensible default configuration
 func DefaultRecommendationConfig() RecommendationConfig {
 	return RecommendationConfig{
-		TargetCPUUtilization:     70.0,
-		TargetMemoryUtilization:  70.0,
+		CPUBufferPercentage:      30.0, // 30% headroom for CPU bursts (pod runs at ~77% utilization)
+		MemoryBufferPercentage:   20.0, // 20% headroom for memory (pod runs at ~83% utilization)
 		MinCPURequest:           "10m",
 		MaxCPURequest:           "4000m",
-		MinMemoryRequest:        "16Mi", // FIXED: Lowered from 64Mi to allow proper downscaling
+		MinMemoryRequest:        "16Mi",
 		MaxMemoryRequest:        "8Gi",
 		MaxScaleUpFactor:        3.0,
 		MaxScaleDownFactor:      0.3,

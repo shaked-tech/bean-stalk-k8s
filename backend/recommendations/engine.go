@@ -103,10 +103,13 @@ func (e *RecommendationEngine) generateCPURecommendationFromCurrent(currentUsage
 	
 	utils.Debug("CPU analysis - Usage: %.4f, Request: %.4f, Limit: %.4f", currentUsage, currentRequest, currentLimit)
 	
-	// Calculate target request to achieve desired utilization (currentUsage / targetUtilization)
+	// SIMPLE BUFFER CALCULATION: targetRequest = usage * (1 + buffer%)
+	// This mathematically guarantees recommendation >= usage
 	var targetRequest float64
 	if currentUsage > 0 {
-		targetRequest = currentUsage / (e.config.TargetCPUUtilization / 100.0)
+		bufferMultiplier := 1.0 + (e.config.CPUBufferPercentage / 100.0)
+		targetRequest = currentUsage * bufferMultiplier
+		utils.Debug("CPU buffer calculation: %.4f * %.2f = %.4f", currentUsage, bufferMultiplier, targetRequest)
 	} else {
 		// If no usage data, use minimum CPU as safe default
 		targetRequest = e.parseResourceValue(e.config.MinCPURequest, "cpu")
@@ -162,14 +165,14 @@ func (e *RecommendationEngine) generateCPURecommendationFromCurrent(currentUsage
 			reasons = append(reasons, models.ReasonWellOptimized)
 		} else if currentUtilization > 75.0 {
 			changeType = "increase"
-			reasons = append(reasons, models.ReasonCPUOverUtilized)
+			reasons = append(reasons, models.ReasonCPUOverUtilized, models.ReasonOverUtilized)
 		} else if currentUtilization < 60.0 && currentUtilization > 0 {
 			changeType = "decrease"
-			reasons = append(reasons, models.ReasonCPUUnderUtilized)
+			reasons = append(reasons, models.ReasonCPUUnderUtilized, models.ReasonUnderUtilized)
 		} else {
 			// Handle edge case where utilization is 0 or negative
 			changeType = "increase"
-			reasons = append(reasons, models.ReasonCPUUnderUtilized)
+			reasons = append(reasons, models.ReasonCPUUnderUtilized, models.ReasonUnderUtilized)
 		}
 	}
 	
@@ -211,60 +214,43 @@ func (e *RecommendationEngine) generateMemoryRecommendationFromCurrent(currentUs
 	utils.Debug("Memory analysis - Usage: %.0f bytes (%.0f Mi), Request: %.0f bytes (%.0f Mi), Limit: %.0f bytes (%.0f Mi)", 
 		currentUsage, currentUsage/(1024*1024), currentRequest, currentRequest/(1024*1024), currentLimit, currentLimit/(1024*1024))
 	
-	// SIMPLIFIED CALCULATION: currentUsage / targetUtilization
+	// SIMPLE BUFFER CALCULATION: targetRequest = usage * (1 + buffer%)
+	// This mathematically guarantees recommendation >= usage
 	var targetRequest float64
 	if currentUsage > 0 {
-		// Simple formula: usage / target percentage = recommended request
-		targetRequest = currentUsage / (e.config.TargetMemoryUtilization / 100.0)
-		log.Printf("STEP 1 - Memory target calculated: %.0f bytes (%.0f Mi) for %.0f%% target utilization", 
-			targetRequest, targetRequest/(1024*1024), e.config.TargetMemoryUtilization)
-		
-		// Apply basic minimum bounds (never go below usage + 10% buffer)
-		minMemory := currentUsage * 1.1 // 10% buffer above actual usage
-		configMinMemory := e.parseResourceValue(e.config.MinMemoryRequest, "memory")
-		if configMinMemory > minMemory {
-			minMemory = configMinMemory
-		}
-		
-		log.Printf("STEP 2 - Before bounds check: targetRequest=%.0f, minMemory=%.0f, configMin=%.0f", targetRequest, minMemory, configMinMemory)
-		
-		if targetRequest < minMemory {
-			log.Printf("STEP 3 - Memory target adjusted from %.0f to minimum %.0f bytes", targetRequest, minMemory)
-			targetRequest = minMemory
-		}
-		
-		// Apply maximum bounds
-		maxMemory := e.parseResourceValue(e.config.MaxMemoryRequest, "memory")
-		log.Printf("STEP 4 - Before max check: targetRequest=%.0f, maxMemory=%.0f", targetRequest, maxMemory)
-		if targetRequest > maxMemory {
-			log.Printf("STEP 5 - Memory target adjusted from %.0f to maximum %.0f bytes", targetRequest, maxMemory)
-			targetRequest = maxMemory
-		}
-		
-		log.Printf("STEP 6 - After bounds: targetRequest=%.0f bytes (%.0f Mi)", targetRequest, targetRequest/(1024*1024))
-		
-		// CRITICAL FIX: Apply scaling limits if current request exists (same as CPU function)
-		if currentRequest > 0 {
-			maxAllowedIncrease := currentRequest * e.config.MaxScaleUpFactor
-			maxAllowedDecrease := currentRequest * e.config.MaxScaleDownFactor
-			
-			log.Printf("STEP 7 - Scaling limits: current=%.0f, maxIncrease=%.0f, maxDecrease=%.0f", currentRequest, maxAllowedIncrease, maxAllowedDecrease)
-			
-			if targetRequest > maxAllowedIncrease {
-				log.Printf("STEP 8 - Memory target %.0f LIMITED by max scale up %.0f", targetRequest, maxAllowedIncrease)
-				targetRequest = maxAllowedIncrease
-			} else if targetRequest < maxAllowedDecrease {
-				log.Printf("STEP 8 - Memory target %.0f LIMITED by max scale down %.0f", targetRequest, maxAllowedDecrease)
-				targetRequest = maxAllowedDecrease
-			}
-		}
-		
-		log.Printf("STEP 9 - After scaling limits: targetRequest=%.0f bytes (%.0f Mi)", targetRequest, targetRequest/(1024*1024))
-		
+		bufferMultiplier := 1.0 + (e.config.MemoryBufferPercentage / 100.0)
+		targetRequest = currentUsage * bufferMultiplier
+		utils.Debug("Memory buffer calculation: %.0f * %.2f = %.0f bytes (%.0f Mi)", 
+			currentUsage, bufferMultiplier, targetRequest, targetRequest/(1024*1024))
 	} else {
 		// No usage data - use configured minimum
 		targetRequest = e.parseResourceValue(e.config.MinMemoryRequest, "memory")
-		log.Printf("STEP 1 - No memory usage data, using default minimum: %.0f bytes (%.0f Mi)", targetRequest, targetRequest/(1024*1024))
+		utils.Debug("No memory usage data, using default minimum: %.0f bytes (%.0f Mi)", targetRequest, targetRequest/(1024*1024))
+	}
+	
+	// Apply safety bounds
+	minMemory := e.parseResourceValue(e.config.MinMemoryRequest, "memory")
+	maxMemory := e.parseResourceValue(e.config.MaxMemoryRequest, "memory")
+	
+	// Apply scaling limits if current request exists
+	if currentRequest > 0 {
+		maxAllowedIncrease := currentRequest * e.config.MaxScaleUpFactor
+		maxAllowedDecrease := currentRequest * e.config.MaxScaleDownFactor
+		
+		if targetRequest > maxAllowedIncrease {
+			utils.Debug("Memory target %.0f limited by max scale up %.0f", targetRequest, maxAllowedIncrease)
+			targetRequest = maxAllowedIncrease
+		} else if targetRequest < maxAllowedDecrease {
+			utils.Debug("Memory target %.0f limited by max scale down %.0f", targetRequest, maxAllowedDecrease)
+			targetRequest = maxAllowedDecrease
+		}
+	}
+	
+	// Ensure within absolute bounds
+	if targetRequest < minMemory {
+		targetRequest = minMemory
+	} else if targetRequest > maxMemory {
+		targetRequest = maxMemory
 	}
 	
 	utils.Debug("Memory final target request: %.0f bytes (%.0f Mi)", targetRequest, targetRequest/(1024*1024))
@@ -278,42 +264,34 @@ func (e *RecommendationEngine) generateMemoryRecommendationFromCurrent(currentUs
 		currentUtilization = (currentUsage / currentRequest) * 100
 	}
 	
-	// Determine change type and reasons - BUT DON'T RESET TARGET REQUEST!
+	// Determine change type and reasons
 	var changeType string
 	percentageChange := 0.0
-	
-	log.Printf("CRITICAL DEBUG: Before percentage calculation - currentRequest: %.0f bytes (%.0f Mi), targetRequest: %.0f bytes (%.0f Mi)", currentRequest, currentRequest/(1024*1024), targetRequest, targetRequest/(1024*1024))
 	
 	if currentRequest == 0 {
 		reasons = append(reasons, models.ReasonMissingRequests)
 		changeType = "increase"
-		// For pods with no current request, show the actual recommended amount as percentage of a baseline
-		// Use a meaningful baseline (like 1Mi = 1048576 bytes) to calculate percentage
-		baselineRequest := float64(1048576) // 1Mi baseline for percentage calculation
+		// For pods with no current request, show percentage relative to baseline
+		baselineRequest := float64(1048576) // 1Mi baseline
 		percentageChange = (targetRequest / baselineRequest) * 100
-		utils.Debug("Pod has no current memory request, using calculated target: %.0f bytes (%.0f Mi), %% change: %.1f%%", targetRequest, targetRequest/(1024*1024), percentageChange)
 	} else {
-		// Normal percentage calculation for pods with current requests
 		percentageChange = ((targetRequest - currentRequest) / currentRequest) * 100
-		log.Printf("CRITICAL DEBUG: Normal percentage calculation: (%.0f - %.0f) / %.0f * 100 = %.1f%%", targetRequest, currentRequest, currentRequest, percentageChange)
 		
-		// Simple utilization check for 60-75% target range
+		// Check utilization for change type classification
 		if currentUtilization >= 60.0 && currentUtilization <= 75.0 {
 			changeType = "no_change"
 			reasons = append(reasons, models.ReasonWellOptimized)
 		} else if currentUtilization > 75.0 {
 			changeType = "increase"
-			reasons = append(reasons, models.ReasonMemoryOverUtilized)
+			reasons = append(reasons, models.ReasonMemoryOverUtilized, models.ReasonOverUtilized)
 		} else if currentUtilization < 60.0 && currentUtilization > 0 {
 			changeType = "decrease"
-			reasons = append(reasons, models.ReasonMemoryUnderUtilized)
+			reasons = append(reasons, models.ReasonMemoryUnderUtilized, models.ReasonUnderUtilized)
 		} else {
 			changeType = "increase"
-			reasons = append(reasons, models.ReasonMemoryUnderUtilized)
+			reasons = append(reasons, models.ReasonMemoryUnderUtilized, models.ReasonUnderUtilized)
 		}
 	}
-	
-	log.Printf("CRITICAL DEBUG: After changeType logic - percentageChange: %.1f%%, changeType: %s", percentageChange, changeType)
 	
 	// Check for memory misalignment (request != limit)
 	if e.config.AlignMemoryRequestsLimits && currentRequest > 0 && currentLimit > 0 {
@@ -326,16 +304,6 @@ func (e *RecommendationEngine) generateMemoryRecommendationFromCurrent(currentUs
 	if currentLimit == 0 && currentRequest > 0 {
 		reasons = append(reasons, models.ReasonMissingLimits)
 	}
-	
-	// CRITICAL BUG FIX: Ensure targetRequest is not 0 when we have usage data
-	if currentUsage > 0 && targetRequest == 0 {
-		// Recalculate if somehow targetRequest got reset
-		targetRequest = currentUsage / (e.config.TargetMemoryUtilization / 100.0)
-		targetLimit = targetRequest
-		log.Printf("ERROR: Target request was 0 but should be %.0f bytes (%.0f Mi) - FIXED!", targetRequest, targetRequest/(1024*1024))
-	}
-	
-	utils.Debug("About to format memory - targetRequest: %.0f bytes (%.0f Mi)", targetRequest, targetRequest/(1024*1024))
 	
 	// Format recommended values
 	recommendedRequestStr := e.formatMemoryValue(targetRequest)
@@ -411,13 +379,13 @@ func (e *RecommendationEngine) parseMemoryValue(memory string) float64 {
 		return 0
 	}
 	
-	// Regular expression to parse memory values
-	re := regexp.MustCompile(`^(\d+(?:\.\d+)?)\s*([KMGT]?i?)B?$`)
+	// Regular expression to parse memory values (uppercase I for binary units)
+	re := regexp.MustCompile(`^(\d+(?:\.\d+)?)\s*([KMGT]?I?)B?$`)
 	matches := re.FindStringSubmatch(strings.ToUpper(memory))
 	
 	if len(matches) != 3 {
 		// Try without 'B' suffix
-		re2 := regexp.MustCompile(`^(\d+(?:\.\d+)?)\s*([KMGT]?i?)$`)
+		re2 := regexp.MustCompile(`^(\d+(?:\.\d+)?)\s*([KMGT]?I?)$`)
 		matches = re2.FindStringSubmatch(strings.ToUpper(memory))
 		if len(matches) != 3 {
 			return 0
