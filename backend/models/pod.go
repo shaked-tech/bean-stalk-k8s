@@ -16,12 +16,12 @@ type PodMetrics struct {
 
 // ResourceMetrics represents resource usage, requests, and limits
 type ResourceMetrics struct {
-	Usage      string  `json:"usage"`
-	Request    string  `json:"request"`
-	Limit      string  `json:"limit"`
-	UsageValue float64 `json:"usageValue"`
+	Usage        string  `json:"usage"`
+	Request      string  `json:"request"`
+	Limit        string  `json:"limit"`
+	UsageValue   float64 `json:"usageValue"`
 	RequestValue float64 `json:"requestValue"`
-	LimitValue float64 `json:"limitValue"`
+	LimitValue   float64 `json:"limitValue"`
 	// Percentage of request that's being used (usage/request * 100)
 	RequestPercentage float64 `json:"requestPercentage"`
 	// Percentage of limit that's being used (usage/limit * 100)
@@ -52,15 +52,15 @@ type DataPoint struct {
 
 // HistoricalResourceData contains historical resource usage data
 type HistoricalResourceData struct {
-	Usage      []DataPoint `json:"usage"`
-	Requests   []DataPoint `json:"requests"`
-	Limits     []DataPoint `json:"limits"`
-	Average    float64     `json:"average"`
-	Peak       float64     `json:"peak"`
-	Minimum    float64     `json:"minimum"`
-	P95        float64     `json:"p95"`
-	P99        float64     `json:"p99"`
-	Trend      string      `json:"trend"` // "increasing", "decreasing", "stable"
+	Usage    []DataPoint `json:"usage"`
+	Requests []DataPoint `json:"requests"`
+	Limits   []DataPoint `json:"limits"`
+	Average  float64     `json:"average"`
+	Peak     float64     `json:"peak"`
+	Minimum  float64     `json:"minimum"`
+	P95      float64     `json:"p95"`
+	P99      float64     `json:"p99"`
+	Trend    string      `json:"trend"` // "increasing", "decreasing", "stable"
 }
 
 // UsagePatterns identifies usage patterns
@@ -83,11 +83,11 @@ type ResourceWasteAnalysis struct {
 
 // UsageAnalysis provides insights about resource usage patterns
 type UsageAnalysis struct {
-	CPUEfficiency     float64               `json:"cpuEfficiency"`     // Average usage/request ratio
-	MemoryEfficiency  float64               `json:"memoryEfficiency"`  // Average usage/request ratio
-	ResourceWaste     ResourceWasteAnalysis `json:"resourceWaste"`
-	Recommendations   []string              `json:"recommendations"`
-	Patterns          UsagePatterns         `json:"patterns"`
+	CPUEfficiency    float64               `json:"cpuEfficiency"`    // Average usage/request ratio
+	MemoryEfficiency float64               `json:"memoryEfficiency"` // Average usage/request ratio
+	ResourceWaste    ResourceWasteAnalysis `json:"resourceWaste"`
+	Recommendations  []string              `json:"recommendations"`
+	Patterns         UsagePatterns         `json:"patterns"`
 }
 
 // HistoricalMetrics represents metrics data over time
@@ -139,12 +139,12 @@ type PodTrendSummary struct {
 
 // PodSummaryResponse provides summary statistics for all pods
 type PodSummaryResponse struct {
-	TotalPods         int     `json:"totalPods"`
-	AverageCPUUsage   float64 `json:"averageCpuUsage"`
-	AverageMemoryUsage float64 `json:"averageMemoryUsage"`
-	HighCPUPods       int     `json:"highCpuPods"`       // >80% usage
-	HighMemoryPods    int     `json:"highMemoryPods"`    // >80% usage
-	LowCPUPods        int     `json:"lowCpuPods"`        // <40% usage
-	LowMemoryPods     int     `json:"lowMemoryPods"`     // <40% usage
-	GeneratedAt       time.Time `json:"generatedAt"`
+	TotalPods          int       `json:"totalPods"`
+	AverageCPUUsage    float64   `json:"averageCpuUsage"`
+	AverageMemoryUsage float64   `json:"averageMemoryUsage"`
+	HighCPUPods        int       `json:"highCpuPods"`    // >80% usage
+	HighMemoryPods     int       `json:"highMemoryPods"` // >80% usage
+	LowCPUPods         int       `json:"lowCpuPods"`     // <40% usage
+	LowMemoryPods      int       `json:"lowMemoryPods"`  // <40% usage
+	GeneratedAt        time.Time `json:"generatedAt"`
 }

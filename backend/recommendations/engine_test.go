@@ -10,15 +10,15 @@ import (
 // Helper function to create test config
 func getTestConfig() models.RecommendationConfig {
 	return models.RecommendationConfig{
-		CPUBufferPercentage:      30.0,
-		MemoryBufferPercentage:   20.0,
-		MinCPURequest:           "10m",
-		MaxCPURequest:           "4000m",
-		MinMemoryRequest:        "16Mi",
-		MaxMemoryRequest:        "8Gi",
-		MaxScaleUpFactor:        3.0,
-		MaxScaleDownFactor:      0.3,
-		RemoveCPULimits:         true,
+		CPUBufferPercentage:       30.0,
+		MemoryBufferPercentage:    20.0,
+		MinCPURequest:             "10m",
+		MaxCPURequest:             "4000m",
+		MinMemoryRequest:          "16Mi",
+		MaxMemoryRequest:          "8Gi",
+		MaxScaleUpFactor:          3.0,
+		MaxScaleDownFactor:        0.3,
+		RemoveCPULimits:           true,
 		AlignMemoryRequestsLimits: true,
 	}
 }
@@ -31,15 +31,15 @@ func TestGuaranteedQoS(t *testing.T) {
 	// CPU: 100m usage, 150m request/limit (66% utilization)
 	// Memory: 256Mi usage, 384Mi request/limit (66% utilization)
 	metric := k8s.PodMetric{
-		Name:         "test-guaranteed-pod",
-		Namespace:    "default",
+		Name:          "test-guaranteed-pod",
+		Namespace:     "default",
 		ContainerName: "app",
-		CPUUsage:     0.100,  // 100m in cores
-		CPURequest:   0.150,  // 150m in cores
-		CPULimit:     0.150,  // 150m in cores
-		MemoryUsage:  268435456, // 256Mi in bytes
+		CPUUsage:      0.100,     // 100m in cores
+		CPURequest:    0.150,     // 150m in cores
+		CPULimit:      0.150,     // 150m in cores
+		MemoryUsage:   268435456, // 256Mi in bytes
 		MemoryRequest: 402653184, // 384Mi in bytes
-		MemoryLimit:  402653184, // 384Mi in bytes
+		MemoryLimit:   402653184, // 384Mi in bytes
 	}
 
 	rec, err := engine.generatePodRecommendation(metric)
@@ -79,15 +79,15 @@ func TestBestEffortQoS(t *testing.T) {
 	// CPU: 50m usage, 0 request/limit
 	// Memory: 128Mi usage, 0 request/limit
 	metric := k8s.PodMetric{
-		Name:         "test-besteffort-pod",
-		Namespace:    "default",
+		Name:          "test-besteffort-pod",
+		Namespace:     "default",
 		ContainerName: "app",
-		CPUUsage:     0.050,  // 50m in cores
-		CPURequest:   0,
-		CPULimit:     0,
-		MemoryUsage:  134217728, // 128Mi in bytes
+		CPUUsage:      0.050, // 50m in cores
+		CPURequest:    0,
+		CPULimit:      0,
+		MemoryUsage:   134217728, // 128Mi in bytes
 		MemoryRequest: 0,
-		MemoryLimit:  0,
+		MemoryLimit:   0,
 	}
 
 	rec, err := engine.generatePodRecommendation(metric)
@@ -138,15 +138,15 @@ func TestBurstableQoS(t *testing.T) {
 	// CPU: 75m usage, 100m request, 200m limit
 	// Memory: 512Mi usage, 256Mi request, 1Gi limit (over-utilized!)
 	metric := k8s.PodMetric{
-		Name:         "test-burstable-pod",
-		Namespace:    "default",
+		Name:          "test-burstable-pod",
+		Namespace:     "default",
 		ContainerName: "app",
-		CPUUsage:     0.075,  // 75m in cores
-		CPURequest:   0.100,  // 100m in cores
-		CPULimit:     0.200,  // 200m in cores
-		MemoryUsage:  536870912, // 512Mi in bytes
-		MemoryRequest: 268435456, // 256Mi in bytes
-		MemoryLimit:  1073741824, // 1Gi in bytes
+		CPUUsage:      0.075,      // 75m in cores
+		CPURequest:    0.100,      // 100m in cores
+		CPULimit:      0.200,      // 200m in cores
+		MemoryUsage:   536870912,  // 512Mi in bytes
+		MemoryRequest: 268435456,  // 256Mi in bytes
+		MemoryLimit:   1073741824, // 1Gi in bytes
 	}
 
 	rec, err := engine.generatePodRecommendation(metric)
@@ -195,15 +195,15 @@ func TestOverProvisionedPod(t *testing.T) {
 	// CPU: 50m usage, 500m request, 1000m limit (10% utilization)
 	// Memory: 100Mi usage, 300Mi request, 600Mi limit (33% utilization)
 	metric := k8s.PodMetric{
-		Name:         "test-overprovisioned-pod",
-		Namespace:    "default",
+		Name:          "test-overprovisioned-pod",
+		Namespace:     "default",
 		ContainerName: "app",
-		CPUUsage:     0.050,  // 50m in cores
-		CPURequest:   0.500,  // 500m in cores
-		CPULimit:     1.000,  // 1000m in cores
-		MemoryUsage:  104857600, // 100Mi in bytes
+		CPUUsage:      0.050,     // 50m in cores
+		CPURequest:    0.500,     // 500m in cores
+		CPULimit:      1.000,     // 1000m in cores
+		MemoryUsage:   104857600, // 100Mi in bytes
 		MemoryRequest: 314572800, // 300Mi in bytes
-		MemoryLimit:  629145600, // 600Mi in bytes
+		MemoryLimit:   629145600, // 600Mi in bytes
 	}
 
 	rec, err := engine.generatePodRecommendation(metric)
@@ -240,15 +240,15 @@ func TestZeroUsagePod(t *testing.T) {
 
 	// Scenario: Pod with requests but zero usage (idle or just started)
 	metric := k8s.PodMetric{
-		Name:         "test-zero-usage-pod",
-		Namespace:    "default",
+		Name:          "test-zero-usage-pod",
+		Namespace:     "default",
 		ContainerName: "app",
-		CPUUsage:     0,
-		CPURequest:   0.100,
-		CPULimit:     0.200,
-		MemoryUsage:  0,
+		CPUUsage:      0,
+		CPURequest:    0.100,
+		CPULimit:      0.200,
+		MemoryUsage:   0,
 		MemoryRequest: 268435456, // 256Mi
-		MemoryLimit:  536870912, // 512Mi
+		MemoryLimit:   536870912, // 512Mi
 	}
 
 	rec, err := engine.generatePodRecommendation(metric)
@@ -281,15 +281,15 @@ func TestScalingLimits(t *testing.T) {
 	// Usage is 100m CPU but current request is only 10m (1000% usage!)
 	// Scale-up limit is 3x, so max allowed is 30m
 	metric := k8s.PodMetric{
-		Name:         "test-scale-limit-pod",
-		Namespace:    "default",
+		Name:          "test-scale-limit-pod",
+		Namespace:     "default",
 		ContainerName: "app",
-		CPUUsage:     0.100,  // 100m
-		CPURequest:   0.010,  // 10m (extremely under-provisioned)
-		CPULimit:     0.020,  // 20m
-		MemoryUsage:  536870912, // 512Mi
+		CPUUsage:      0.100,     // 100m
+		CPURequest:    0.010,     // 10m (extremely under-provisioned)
+		CPULimit:      0.020,     // 20m
+		MemoryUsage:   536870912, // 512Mi
 		MemoryRequest: 67108864,  // 64Mi (extremely under-provisioned)
-		MemoryLimit:  134217728, // 128Mi
+		MemoryLimit:   134217728, // 128Mi
 	}
 
 	rec, err := engine.generatePodRecommendation(metric)

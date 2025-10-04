@@ -30,7 +30,9 @@ def test_theme_toggle_exists(page: Page):
     page.wait_for_selector(".MuiAppBar-root", timeout=10000)
 
     # Find theme toggle button
-    theme_button = page.locator("button:has(svg[data-testid='Brightness4Icon'], svg[data-testid='Brightness7Icon'])")
+    theme_button = page.locator(
+        "button:has(svg[data-testid='Brightness4Icon'], svg[data-testid='Brightness7Icon'])"
+    )
 
     # Verify button exists and is visible
     expect(theme_button).to_be_visible()

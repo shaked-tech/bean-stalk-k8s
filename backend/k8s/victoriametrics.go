@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"io"
 	"log"
-"github.com/bean-stalk-k8s/backend/utils"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/bean-stalk-k8s/backend/utils"
 )
 
 // VictoriaMetricsClient wraps the VictoriaMetrics API client
@@ -78,7 +79,7 @@ type VMResult struct {
 
 // GetCurrentPodMetrics retrieves current pod metrics from VictoriaMetrics
 func (vm *VictoriaMetricsClient) GetCurrentPodMetrics(ctx context.Context, namespace string) ([]PodMetric, error) {
-utils.Info("Querying VictoriaMetrics for pod metrics (namespace: %s)", namespace)
+	utils.Info("Querying VictoriaMetrics for pod metrics (namespace: %s)", namespace)
 	var pods []PodMetric
 
 	// Build namespace filter

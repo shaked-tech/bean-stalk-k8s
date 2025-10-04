@@ -1,6 +1,7 @@
-import pytest
 import asyncio
 import os
+
+import pytest
 from playwright.async_api import async_playwright
 
 
@@ -18,12 +19,12 @@ async def browser_context():
     async with async_playwright() as p:
         browser = await p.chromium.launch(
             headless=True,  # Set to False for debugging
-            args=['--no-sandbox', '--disable-dev-shm-usage']
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
         )
         context = await browser.new_context(
-            viewport={'width': 1280, 'height': 720},
+            viewport={"width": 1280, "height": 720},
             # Clear any existing localStorage/cookies for consistent test state
-            storage_state=None
+            storage_state=None,
         )
         yield context
         await browser.close()
@@ -35,7 +36,7 @@ async def page(browser_context):
     page = await browser_context.new_page()
 
     # Create screenshots directory if it doesn't exist
-    os.makedirs('qa/playwright-tests/screenshots', exist_ok=True)
+    os.makedirs("qa/playwright-tests/screenshots", exist_ok=True)
 
     yield page
     await page.close()
@@ -44,12 +45,8 @@ async def page(browser_context):
 # Configure pytest markers
 def pytest_configure(config):
     """Configure custom pytest markers."""
-    config.addinivalue_line(
-        "markers", "visual: marks tests as visual tests that take screenshots"
-    )
-    config.addinivalue_line(
-        "markers", "slow: marks tests as slow running"
-    )
+    config.addinivalue_line("markers", "visual: marks tests as visual tests that take screenshots")
+    config.addinivalue_line("markers", "slow: marks tests as slow running")
 
 
 # Custom test collection modifier
@@ -61,8 +58,10 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.slow)
 
         # Add integration marker to tests that navigate
-        if "test_" in item.name and hasattr(item, 'function'):
-            if any(keyword in item.name.lower() for keyword in ['navigation', 'refresh', 'persistence']):
+        if "test_" in item.name and hasattr(item, "function"):
+            if any(
+                keyword in item.name.lower() for keyword in ["navigation", "refresh", "persistence"]
+            ):
                 item.add_marker(pytest.mark.integration)
 
 
@@ -71,6 +70,6 @@ def pytest_collection_modifyitems(config, items):
 def set_test_env():
     """Set environment variables for testing."""
     # Set base URL for testing (can be overridden via environment variable)
-    if 'BASE_URL' not in os.environ:
-        os.environ['BASE_URL'] = 'http://localhost:3000'
+    if "BASE_URL" not in os.environ:
+        os.environ["BASE_URL"] = "http://localhost:3000"
     yield

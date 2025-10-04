@@ -3,12 +3,13 @@ package recommendations
 import (
 	"fmt"
 	"log"
-"github.com/bean-stalk-k8s/backend/utils"
 	"math"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/bean-stalk-k8s/backend/utils"
 
 	"github.com/bean-stalk-k8s/backend/k8s"
 	"github.com/bean-stalk-k8s/backend/models"
@@ -49,8 +50,8 @@ func (e *RecommendationEngine) GenerateRecommendations(currentMetrics []k8s.PodM
 	// Create response
 	response := models.RecommendationsResponse{
 		Recommendations:   recommendations,
-		Summary:          summary,
-		GeneratedAt:      time.Now(),
+		Summary:           summary,
+		GeneratedAt:       time.Now(),
 		AnalysisWindow:    "current usage",
 		TargetUtilization: e.config.TargetCPUUtilization,
 	}
@@ -65,12 +66,12 @@ func (e *RecommendationEngine) generatePodRecommendation(current k8s.PodMetric) 
 
 	// Initialize recommendation structure
 	recommendation := models.PodResourceRecommendation{
-		PodName:       current.Name,
-		Namespace:     current.Namespace,
-		ContainerName: current.ContainerName,
-		LastUpdated:   time.Now(),
-		ApplicableFrom: time.Now(),
-		HistoricalAvgCPU: current.CPUUsage,    // Current usage as "historical"
+		PodName:             current.Name,
+		Namespace:           current.Namespace,
+		ContainerName:       current.ContainerName,
+		LastUpdated:         time.Now(),
+		ApplicableFrom:      time.Now(),
+		HistoricalAvgCPU:    current.CPUUsage,    // Current usage as "historical"
 		HistoricalAvgMemory: current.MemoryUsage, // Current usage as "historical"
 	}
 
@@ -88,7 +89,7 @@ func (e *RecommendationEngine) generatePodRecommendation(current k8s.PodMetric) 
 
 	// Calculate overall metrics based on current data
 	recommendation.Reasons = reasons
-	recommendation.ConfidenceScore = 95.0 // High confidence with current data
+	recommendation.ConfidenceScore = 95.0    // High confidence with current data
 	recommendation.DataQuality = "excellent" // Current data is always excellent quality
 	recommendation.Priority = e.calculatePriority(reasons, recommendation.ConfidenceScore)
 	recommendation.RiskLevel = e.assessRiskLevel(cpuRecommendation, memoryRecommendation)

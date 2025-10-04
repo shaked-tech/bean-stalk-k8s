@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
-"github.com/bean-stalk-k8s/backend/utils"
 	"net/http"
 	"time"
+
+	"github.com/bean-stalk-k8s/backend/utils"
 
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -85,15 +86,15 @@ type HistoricalMetrics struct {
 
 // HistoricalResourceData contains historical resource usage data
 type HistoricalResourceData struct {
-	Usage      []DataPoint `json:"usage"`
-	Requests   []DataPoint `json:"requests"`
-	Limits     []DataPoint `json:"limits"`
-	Average    float64     `json:"average"`
-	Peak       float64     `json:"peak"`
-	Minimum    float64     `json:"minimum"`
-	P95        float64     `json:"p95"`
-	P99        float64     `json:"p99"`
-	Trend      string      `json:"trend"` // "increasing", "decreasing", "stable"
+	Usage    []DataPoint `json:"usage"`
+	Requests []DataPoint `json:"requests"`
+	Limits   []DataPoint `json:"limits"`
+	Average  float64     `json:"average"`
+	Peak     float64     `json:"peak"`
+	Minimum  float64     `json:"minimum"`
+	P95      float64     `json:"p95"`
+	P99      float64     `json:"p99"`
+	Trend    string      `json:"trend"` // "increasing", "decreasing", "stable"
 }
 
 // DataPoint represents a single metric data point
@@ -104,21 +105,21 @@ type DataPoint struct {
 
 // UsageAnalysis provides insights about resource usage patterns
 type UsageAnalysis struct {
-	CPUEfficiency     float64                `json:"cpuEfficiency"`     // Average usage/request ratio
-	MemoryEfficiency  float64                `json:"memoryEfficiency"`  // Average usage/request ratio
-	ResourceWaste     ResourceWasteAnalysis  `json:"resourceWaste"`
-	Recommendations   []string               `json:"recommendations"`
-	Patterns          UsagePatterns          `json:"patterns"`
+	CPUEfficiency    float64               `json:"cpuEfficiency"`    // Average usage/request ratio
+	MemoryEfficiency float64               `json:"memoryEfficiency"` // Average usage/request ratio
+	ResourceWaste    ResourceWasteAnalysis `json:"resourceWaste"`
+	Recommendations  []string              `json:"recommendations"`
+	Patterns         UsagePatterns         `json:"patterns"`
 }
 
 // ResourceWasteAnalysis identifies over/under-provisioned resources
 type ResourceWasteAnalysis struct {
-	CPUOverProvisioned    bool    `json:"cpuOverProvisioned"`
-	MemoryOverProvisioned bool    `json:"memoryOverProvisioned"`
-	CPUUnderProvisioned   bool    `json:"cpuUnderProvisioned"`
-	MemoryUnderProvisioned bool   `json:"memoryUnderProvisioned"`
-	CPUWastePercentage    float64 `json:"cpuWastePercentage"`
-	MemoryWastePercentage float64 `json:"memoryWastePercentage"`
+	CPUOverProvisioned     bool    `json:"cpuOverProvisioned"`
+	MemoryOverProvisioned  bool    `json:"memoryOverProvisioned"`
+	CPUUnderProvisioned    bool    `json:"cpuUnderProvisioned"`
+	MemoryUnderProvisioned bool    `json:"memoryUnderProvisioned"`
+	CPUWastePercentage     float64 `json:"cpuWastePercentage"`
+	MemoryWastePercentage  float64 `json:"memoryWastePercentage"`
 }
 
 // UsagePatterns identifies usage patterns

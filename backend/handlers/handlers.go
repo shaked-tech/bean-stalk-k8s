@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"time"
+
 	"github.com/bean-stalk-k8s/backend/k8s"
 	"github.com/bean-stalk-k8s/backend/models"
 	"github.com/bean-stalk-k8s/backend/recommendations"
@@ -249,7 +250,7 @@ func (h *Handler) GetHistoricalAnalysis(w http.ResponseWriter, r *http.Request) 
 	// Create response
 	response := models.HistoricalAnalysisList{
 		HistoricalMetrics: modelMetrics,
-		GeneratedAt:      time.Now(),
+		GeneratedAt:       time.Now(),
 		TimeRange: models.TimeRange{
 			Start: time.Now().Add(-7 * 24 * time.Hour),
 			End:   time.Now(),
@@ -396,10 +397,10 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
-		"status":           "healthy",
-		"timestamp":        time.Now().Format(time.RFC3339),
-		"metricsClient":    metricsStatus,
-		"metricsBackend":   clientType,
+		"status":         "healthy",
+		"timestamp":      time.Now().Format(time.RFC3339),
+		"metricsClient":  metricsStatus,
+		"metricsBackend": clientType,
 		"features": map[string]bool{
 			"realTimeMetrics":    true,
 			"historicalAnalysis": h.metricsClient != nil,

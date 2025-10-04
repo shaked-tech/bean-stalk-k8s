@@ -37,3 +37,57 @@ repos:
 
       # Check for debugger imports and breakpoint() calls in Python
       - id: debug-statements
+
+  # Python code formatting and linting
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        language_version: python3
+        args: [--line-length=100]
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--profile=black, --line-length=100]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+        args: [--max-line-length=100, --extend-ignore=E203]
+
+  # Go formatting and linting
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v0.5.1
+    hooks:
+      # Format Go code
+      - id: go-fmt
+        args: [-w]
+        files: ^backend/.*\.go$
+
+      # Run go mod tidy
+      - id: go-mod-tidy
+        files: ^backend/go\.(mod|sum)$
+        pass_filenames: false
+        args: [-C, backend]
+
+  # Local Go hooks (using system Go tools)
+  - repo: local
+    hooks:
+      # Go imports (requires goimports in PATH: go install golang.org/x/tools/cmd/goimports@latest)
+      - id: go-imports
+        name: go-imports
+        entry: bash -c '~/go/bin/goimports -w "$@"' --
+        language: system
+        files: ^backend/.*\.go$
+        pass_filenames: true
+
+      # Go vet (static analysis)
+      - id: go-vet
+        name: go-vet
+        entry: bash -c 'cd backend && go vet ./...'
+        language: system
+        files: ^backend/.*\.go$
+        pass_filenames: false
