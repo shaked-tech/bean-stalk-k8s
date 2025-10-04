@@ -1,0 +1,39 @@
+# Pre-commit hooks for bean-stalk-k8s
+# Install with: pip install pre-commit
+# Setup with: pre-commit install
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # Remove trailing whitespace
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+
+      # Ensure files end with a newline
+      - id: end-of-file-fixer
+
+      # Validate YAML syntax
+      - id: check-yaml
+        args: [--unsafe]  # Allows custom YAML tags (needed for k8s configs)
+
+      # Prevent large files from being committed (>500KB)
+      - id: check-added-large-files
+        args: [--maxkb=500]
+
+      # Check for merge conflict markers
+      - id: check-merge-conflict
+
+      # Check for files with names that would conflict on case-insensitive filesystems
+      - id: check-case-conflict
+
+      # Ensure consistent line endings (converts to LF)
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+      # Check for files that parse as valid JSON
+      - id: check-json
+
+      # Check for debugger imports and breakpoint() calls in Python
+      - id: debug-statements

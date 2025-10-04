@@ -24,22 +24,22 @@ type Handler struct {
 func NewHandler() (*Handler, error) {
 	// Get metrics backend configuration
 	backend := getEnvWithDefault("METRICS_BACKEND", "victoriametrics")
-	
+
 	// Get metrics URL based on backend with support for new and legacy env vars
 	var metricsURL string
 	var username, password string
-	
+
 	switch backend {
 	case "victoriametrics":
 		// Try new env var first, then legacy, then default
-		metricsURL = getEnvWithDefault("METRICS_VICTORIAMETRICS_URL", 
-			getEnvWithDefault("VICTORIAMETRICS_URL", 
+		metricsURL = getEnvWithDefault("METRICS_VICTORIAMETRICS_URL",
+			getEnvWithDefault("VICTORIAMETRICS_URL",
 				"http://victoria-metrics-victoria-metrics-cluster-vmselect.pod-metrics-dashboard.svc.cluster.local:8481/select/0/prometheus"))
 		// Get optional credentials for VictoriaMetrics
 		username = getEnvWithDefault("METRICS_VICTORIAMETRICS_USERNAME", "")
 		password = getEnvWithDefault("METRICS_VICTORIAMETRICS_PASSWORD", "")
 	case "prometheus":
-		// Try new env var first, then legacy, then default  
+		// Try new env var first, then legacy, then default
 		metricsURL = getEnvWithDefault("METRICS_PROMETHEUS_URL",
 			getEnvWithDefault("PROMETHEUS_URL",
 				"http://prometheus-stack-kube-prom-prometheus.pod-metrics-dashboard.svc.cluster.local:9090"))
@@ -81,7 +81,7 @@ func NewHandler() (*Handler, error) {
 	if username != "" && password != "" {
 		authStatus = "enabled"
 	}
-	
+
 	log.Printf("INFO: Metrics configuration loaded:")
 	log.Printf("  - Backend: %s", backend)
 	log.Printf("  - URL: %s", metricsURL)
@@ -114,7 +114,7 @@ func (h *Handler) GetNamespaces(w http.ResponseWriter, r *http.Request) {
 
 	// Set response headers
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	// Create response
 	response := models.NamespaceList{
 		Namespaces: namespaces,
@@ -278,7 +278,7 @@ func (h *Handler) GetPodTrends(w http.ResponseWriter, r *http.Request) {
 	namespace := r.URL.Query().Get("namespace")
 	podName := r.URL.Query().Get("pod")
 	days := r.URL.Query().Get("days")
-	
+
 	if namespace == "" || podName == "" {
 		http.Error(w, "namespace and pod parameters are required", http.StatusBadRequest)
 		return
@@ -387,14 +387,14 @@ func (h *Handler) GetPodTrends(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	
+
 	metricsStatus := "unavailable"
 	var clientType string
 	if h.metricsClient != nil {
 		metricsStatus = "available"
 		clientType = h.metricsClient.GetClientType()
 	}
-	
+
 	response := map[string]interface{}{
 		"status":           "healthy",
 		"timestamp":        time.Now().Format(time.RFC3339),
@@ -406,7 +406,7 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 			"trendAnalysis":      h.metricsClient != nil,
 		},
 	}
-	
+
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -428,15 +428,15 @@ func convertMetricsToModelMetric(metric k8s.PodMetric) models.PodMetrics {
 	cpuUsageStr := formatCPU(metric.CPUUsage)
 	cpuRequestStr := formatCPU(metric.CPURequest)
 	cpuLimitStr := formatCPU(metric.CPULimit)
-	
+
 	memUsageStr := formatMemory(metric.MemoryUsage)
 	memRequestStr := formatMemory(metric.MemoryRequest)
 	memLimitStr := formatMemory(metric.MemoryLimit)
-	
+
 	// Calculate percentages
 	var cpuRequestPercentage, cpuLimitPercentage float64
 	var memRequestPercentage, memLimitPercentage float64
-	
+
 	if metric.CPURequest > 0 {
 		cpuRequestPercentage = (metric.CPUUsage / metric.CPURequest) * 100
 	}
@@ -449,7 +449,7 @@ func convertMetricsToModelMetric(metric k8s.PodMetric) models.PodMetrics {
 	if metric.MemoryLimit > 0 {
 		memLimitPercentage = (metric.MemoryUsage / metric.MemoryLimit) * 100
 	}
-	
+
 	return models.PodMetrics{
 		Name:          metric.Name,
 		Namespace:     metric.Namespace,
@@ -495,17 +495,17 @@ func formatCPU(cpuCores float64) string {
 func formatMemory(bytes float64) string {
 	// DEBUG: Log memory conversion
 	utils.Debug("formatMemory input: %.0f bytes", bytes)
-	
+
 	if bytes == 0 {
 		return "0Mi"
 	}
-	
+
 	const (
 		KB = 1024
 		MB = KB * 1024
 		GB = MB * 1024
 	)
-	
+
 	var result string
 	if bytes >= GB {
 		result = fmt.Sprintf("%.1fGi", bytes/GB)
@@ -516,10 +516,10 @@ func formatMemory(bytes float64) string {
 	} else {
 		result = fmt.Sprintf("%.0fB", bytes)
 	}
-	
+
 	// DEBUG: Log conversion result
 	utils.Debug("formatMemory output: %s (%.2f Mi)", result, bytes/MB)
-	
+
 	return result
 }
 
@@ -774,7 +774,7 @@ func (h *Handler) GetResourceRecommendations(w http.ResponseWriter, r *http.Requ
 
 	// Create recommendation engine with default configuration
 	config := models.DefaultRecommendationConfig()
-	
+
 	// Allow configuration override via environment variables
 	if targetCPU := getEnvWithDefault("RECOMMENDATIONS_TARGET_CPU_UTILIZATION", ""); targetCPU != "" {
 		if cpu, err := strconv.ParseFloat(targetCPU, 64); err == nil {
@@ -786,7 +786,7 @@ func (h *Handler) GetResourceRecommendations(w http.ResponseWriter, r *http.Requ
 			config.TargetMemoryUtilization = memory
 		}
 	}
-	
+
 	// Override CPU limit removal setting if specified
 	if removeCPULimits := getEnvWithDefault("RECOMMENDATIONS_REMOVE_CPU_LIMITS", ""); removeCPULimits != "" {
 		if remove, err := strconv.ParseBool(removeCPULimits); err == nil {
@@ -794,7 +794,7 @@ func (h *Handler) GetResourceRecommendations(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	log.Printf("INFO: Using recommendation config - CPU target: %.0f%%, Memory target: %.0f%%", 
+	log.Printf("INFO: Using recommendation config - CPU target: %.0f%%, Memory target: %.0f%%",
 		config.TargetCPUUtilization, config.TargetMemoryUtilization)
 
 	engine := recommendations.NewRecommendationEngine(config)

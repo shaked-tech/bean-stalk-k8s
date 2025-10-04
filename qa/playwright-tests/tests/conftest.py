@@ -33,10 +33,10 @@ async def browser_context():
 async def page(browser_context):
     """Create a new page for each test."""
     page = await browser_context.new_page()
-    
+
     # Create screenshots directory if it doesn't exist
     os.makedirs('qa/playwright-tests/screenshots', exist_ok=True)
-    
+
     yield page
     await page.close()
 
@@ -59,7 +59,7 @@ def pytest_collection_modifyitems(config, items):
         # Add slow marker to visual tests
         if "visual" in item.name:
             item.add_marker(pytest.mark.slow)
-            
+
         # Add integration marker to tests that navigate
         if "test_" in item.name and hasattr(item, 'function'):
             if any(keyword in item.name.lower() for keyword in ['navigation', 'refresh', 'persistence']):

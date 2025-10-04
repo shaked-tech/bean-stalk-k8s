@@ -45,11 +45,11 @@ body > div > div > div {
   .MuiTypography-h4 {
     font-size: 1.75rem !important;
   }
-  
+
   .MuiTypography-h5 {
     font-size: 1.5rem !important;
   }
-  
+
   .MuiTypography-body2 {
     font-size: 0.8rem !important;
   }
@@ -59,7 +59,7 @@ body > div > div > div {
   .MuiTypography-h4 {
     font-size: 1.5rem !important;
   }
-  
+
   .MuiTypography-h5 {
     font-size: 1.25rem !important;
   }
@@ -69,11 +69,11 @@ body > div > div > div {
   .MuiTypography-h4 {
     font-size: 1.25rem !important;
   }
-  
+
   .MuiTypography-h5 {
     font-size: 1.1rem !important;
   }
-  
+
   .MuiCardContent-root {
     padding: 12px !important;
   }
@@ -189,7 +189,7 @@ html, body {
     padding-left: 4px !important;
     padding-right: 4px !important;
   }
-  
+
   .MuiPaper-root {
     margin: 4px;
   }

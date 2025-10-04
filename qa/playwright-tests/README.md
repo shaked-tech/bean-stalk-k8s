@@ -250,25 +250,25 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      
+
       - name: Install dependencies
         run: |
           cd qa/playwright-tests
           pip install -r requirements.txt
           playwright install --with-deps chromium
-      
+
       - name: Start frontend
         run: |
           cd frontend
           npm ci
           npm start &
           sleep 30
-      
+
       - name: Run tests
         run: |
           cd qa/playwright-tests
           pytest --browser chromium
-      
+
       - name: Upload reports
         uses: actions/upload-artifact@v3
         if: always()

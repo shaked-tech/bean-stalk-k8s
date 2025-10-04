@@ -41,7 +41,7 @@ jest.mock('./theme/ThemeContext', () => ({
 
 describe('Search Fix Verification', () => {
   jest.setTimeout(15000); // Increase timeout for this test suite
-  
+
   test('search should not crash when pod has null labels', async () => {
     // Render the app
     render(<App />);
@@ -54,10 +54,10 @@ describe('Search Fix Verification', () => {
     // Find search input
     const searchInput = screen.getByPlaceholderText('Search pods, containers, namespaces...') as HTMLInputElement;
     expect(searchInput).toBeInTheDocument();
-    
+
     // Perform search - this should NOT crash the app
     await userEvent.type(searchInput, 'test');
-    
+
     // If we reach here without errors, the fix is working
     expect(searchInput.value).toBe('test');
   });

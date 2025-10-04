@@ -42,7 +42,7 @@ A comprehensive web application that provides both real-time and historical visu
 
 ### Components
 
-- **Backend (Go)**: 
+- **Backend (Go)**:
   - REST API server using Gin framework
   - Kubernetes client for metrics-server API calls
   - CORS enabled for frontend communication
@@ -484,7 +484,7 @@ kubectl logs -n pod-metrics-dashboard -l app=pod-metrics-backend -f
    ```bash
    # Check if metrics-server is running
    kubectl get deployment metrics-server -n kube-system
-   
+
    # If not installed, install it
    kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
    ```

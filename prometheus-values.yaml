@@ -6,11 +6,11 @@ prometheus:
     # Data retention for 7-day analysis (10 days with buffer)
     retention: 10d
     retentionSize: 8GB
-    
+
     # Scraping configuration
     scrapeInterval: 30s
     evaluationInterval: 30s
-    
+
     # Storage configuration
     storageSpec:
       volumeClaimTemplate:
@@ -20,7 +20,7 @@ prometheus:
           resources:
             requests:
               storage: 15Gi
-    
+
     # Resource limits for Kind cluster
     resources:
       requests:
@@ -36,14 +36,14 @@ prometheus:
 grafana:
   # Enable Grafana
   enabled: true
-  
+
   # Admin credentials
   adminPassword: "admin"
-  
+
   # Use emptyDir for Kind cluster (development setup)
   persistence:
     enabled: false
-  
+
   # Resource limits for Kind cluster
   resources:
     requests:
@@ -52,10 +52,10 @@ grafana:
     limits:
       memory: 256Mi
       cpu: 500m
-  
+
   # Let the chart configure datasources automatically
   # datasources will be auto-configured by kube-prometheus-stack
-  
+
   # Import default Kubernetes dashboards
   dashboardProviders:
     dashboardproviders.yaml:
@@ -69,7 +69,7 @@ grafana:
         editable: true
         options:
           path: /var/lib/grafana/dashboards/default
-  
+
   # Service configuration
   service:
     type: ClusterIP

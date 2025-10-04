@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
-  Paper, 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
   LinearProgress,
   Typography,
   Box,
@@ -31,14 +31,14 @@ interface PodMetricsTableProps {
   onSortChange: (property: string) => void;
 }
 
-const PodMetricsTable: React.FC<PodMetricsTableProps> = ({ 
-  pods, 
-  sortBy, 
-  sortDirection, 
-  onSortChange 
+const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
+  pods,
+  sortBy,
+  sortDirection,
+  onSortChange
 }) => {
   const theme = useTheme();
-  
+
   // Responsive breakpoints for column visibility
   const isExtraSmall = useMediaQuery(theme.breakpoints.down('sm')); // < 600px
   const isSmall = useMediaQuery(theme.breakpoints.down('md')); // < 900px
@@ -151,7 +151,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
 
   const sortedPods = [...pods].sort((a, b) => {
     let comparison = 0;
-    
+
     switch (sortBy) {
       case 'name':
         comparison = a.name.localeCompare(b.name);
@@ -205,11 +205,11 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
       return (
         <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
           <Box sx={{ width: '100%', mr: 1 }}>
-            <LinearProgress 
-              variant="determinate" 
-              value={0} 
-              sx={{ 
-                height: 10, 
+            <LinearProgress
+              variant="determinate"
+              value={0}
+              sx={{
+                height: 10,
                 borderRadius: 5,
                 backgroundColor: '#e0e0e0',
                 '& .MuiLinearProgress-bar': {
@@ -230,10 +230,10 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
         <Box sx={{ width: '100%', mr: 1 }}>
-          <LinearProgress 
-            variant="determinate" 
-            value={Math.min(value, 100)} 
-            color={color as "primary" | "secondary" | "error" | "info" | "success" | "warning" | undefined} 
+          <LinearProgress
+            variant="determinate"
+            value={Math.min(value, 100)}
+            color={color as "primary" | "secondary" | "error" | "info" | "success" | "warning" | undefined}
             sx={{ height: 10, borderRadius: 5 }}
           />
         </Box>
@@ -267,7 +267,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
     // Check utilization FIRST (highest priority) - ONLY based on actual utilization
     const isOverUtilized = cpuUtilization > 75 || memoryUtilization > 75;
     const isUnderUtilized = cpuUtilization < 60 || memoryUtilization < 60;
-    
+
     // Over-utilized pods (red) - ONLY when utilization is actually high
     if (isOverUtilized) {
       return { status: 'high_risk', color: 'error' as const, text: '🚨 Over Utilized', icon: <ErrorIcon /> };
@@ -304,17 +304,17 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
 
     try {
       const recommendationsResponse = await fetchPodRecommendations(pod.namespace);
-      
+
       if (recommendationsResponse) {
         // Find the specific recommendation for this pod
-        const podRecommendation = recommendationsResponse.recommendations.find(r => 
-          r.podName === pod.name && 
-          r.namespace === pod.namespace && 
+        const podRecommendation = recommendationsResponse.recommendations.find(r =>
+          r.podName === pod.name &&
+          r.namespace === pod.namespace &&
           r.containerName === pod.containerName
         );
-        
+
         setRecommendation(podRecommendation);
-        
+
         if (!podRecommendation) {
           setRecommendationError('No recommendation found for this pod. This may indicate insufficient historical data.');
         }
@@ -349,7 +349,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
         <TableHead>
           <TableRow>
             {visibleColumns.name && (
-              <TableCell 
+              <TableCell
                 onClick={() => handleSort('name')}
                 sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 150 }}
               >
@@ -357,7 +357,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
               </TableCell>
             )}
             {visibleColumns.containerName && (
-              <TableCell 
+              <TableCell
                 onClick={() => handleSort('containerName')}
                 sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 120 }}
               >
@@ -365,7 +365,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
               </TableCell>
             )}
             {visibleColumns.namespace && (
-              <TableCell 
+              <TableCell
                 onClick={() => handleSort('namespace')}
                 sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 100 }}
               >
@@ -373,7 +373,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
               </TableCell>
             )}
             {visibleColumns.cpuUsage && (
-              <TableCell 
+              <TableCell
                 onClick={() => handleSort('cpuUsage')}
                 sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 100 }}
               >
@@ -381,7 +381,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
               </TableCell>
             )}
             {visibleColumns.cpuRequest && (
-              <TableCell 
+              <TableCell
                 onClick={() => handleSort('cpuRequest')}
                 sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 110 }}
               >
@@ -389,7 +389,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
               </TableCell>
             )}
             {visibleColumns.cpuLimit && (
-              <TableCell 
+              <TableCell
                 onClick={() => handleSort('cpuLimit')}
                 sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 100 }}
               >
@@ -397,7 +397,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
               </TableCell>
             )}
             {visibleColumns.cpuRequestPercentage && (
-              <TableCell 
+              <TableCell
                 onClick={() => handleSort('cpuRequestPercentage')}
                 sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 140 }}
               >
@@ -405,7 +405,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
               </TableCell>
             )}
             {visibleColumns.cpuLimitPercentage && (
-              <TableCell 
+              <TableCell
                 onClick={() => handleSort('cpuLimitPercentage')}
                 sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 130 }}
               >
@@ -413,7 +413,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
               </TableCell>
             )}
             {visibleColumns.memoryUsage && (
-              <TableCell 
+              <TableCell
                 onClick={() => handleSort('memoryUsage')}
                 sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 120 }}
               >
@@ -421,7 +421,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
               </TableCell>
             )}
             {visibleColumns.memoryRequest && (
-              <TableCell 
+              <TableCell
                 onClick={() => handleSort('memoryRequest')}
                 sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 130 }}
               >
@@ -429,7 +429,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
               </TableCell>
             )}
             {visibleColumns.memoryLimit && (
-              <TableCell 
+              <TableCell
                 onClick={() => handleSort('memoryLimit')}
                 sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 120 }}
               >
@@ -437,7 +437,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
               </TableCell>
             )}
             {visibleColumns.memoryRequestPercentage && (
-              <TableCell 
+              <TableCell
                 onClick={() => handleSort('memoryRequestPercentage')}
                 sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 160 }}
               >
@@ -445,7 +445,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
               </TableCell>
             )}
             {visibleColumns.memoryLimitPercentage && (
-              <TableCell 
+              <TableCell
                 onClick={() => handleSort('memoryLimitPercentage')}
                 sx={{ cursor: 'pointer', fontWeight: 'bold', minWidth: 150 }}
               >
@@ -453,7 +453,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
               </TableCell>
             )}
             {/* Recommendation Actions Column */}
-            <TableCell 
+            <TableCell
               sx={{ fontWeight: 'bold', minWidth: 150, textAlign: 'center' }}
             >
               Actions
@@ -536,7 +536,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
                   const podKey = getPodKey(pod);
                   const status = getPodOptimizationStatus(pod);
                   const isLoading = loadingPods.has(podKey);
-                  
+
                   return (
                     <Button
                       size="small"
@@ -545,7 +545,7 @@ const PodMetricsTable: React.FC<PodMetricsTableProps> = ({
                       onClick={() => handleRecommendationClick(pod)}
                       disabled={isLoading}
                       startIcon={isLoading ? <CircularProgress size={16} /> : status.icon}
-                      sx={{ 
+                      sx={{
                         minWidth: 'auto',
                         whiteSpace: 'nowrap',
                         fontSize: '0.75rem'

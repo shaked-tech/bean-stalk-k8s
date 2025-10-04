@@ -137,7 +137,7 @@ echo -e "${YELLOW}Loading frontend image (v$VERSION)...${NC}"
 if ! kind load --name $CLUSTER_NAME docker-image pod-metrics-frontend:$VERSION; then
     echo -e "${RED}❌ Failed to load versioned frontend image into Kind${NC}"
     exit 1
-fi  
+fi
 if ! kind load --name $CLUSTER_NAME docker-image pod-metrics-frontend:latest; then
     echo -e "${RED}❌ Failed to load latest frontend image into Kind${NC}"
     exit 1
@@ -211,7 +211,7 @@ elif [ "$METRICS_BACKEND" = "victoriametrics" ]; then
     echo -e "   ${YELLOW}Includes:${NC} vminsert, vmselect, vmstorage"
     echo -e "   ${YELLOW}Config:${NC} Using default values"
     echo -e "   ${YELLOW}Namespace:${NC} monitoring"
-    
+
     # Install VictoriaMetrics Cluster
     helm upgrade --install victoria-metrics vm/victoria-metrics-cluster \
       --namespace monitoring
@@ -235,11 +235,11 @@ elif [ "$METRICS_BACKEND" = "victoriametrics" ]; then
     echo -e "   ${YELLOW}Chart:${NC} vm/victoria-metrics-agent"
     echo -e "   ${YELLOW}Config:${NC} vmagent-values.yaml"
     echo -e "   ${YELLOW}Namespace:${NC} monitoring"
-    
+
     if helm upgrade --install vmagent vm/victoria-metrics-agent \
       --namespace monitoring \
       --values vmagent-values.yaml; then
-        
+
         echo "⏳ Waiting for vmagent to be ready..."
         kubectl wait --for=condition=available --timeout=300s deployment/vmagent-victoria-metrics-agent -n monitoring || echo "Warning: vmagent may still be starting"
     else
@@ -248,7 +248,7 @@ elif [ "$METRICS_BACKEND" = "victoriametrics" ]; then
         helm upgrade --install vmagent vm/victoria-metrics-agent \
           --namespace monitoring \
           --set remoteWrite[0].url=http://victoria-metrics-victoria-metrics-cluster-vminsert.monitoring.svc.cluster.local:8480/insert/0/prometheus/
-        
+
         echo "⏳ Waiting for vmagent to be ready..."
         kubectl wait --for=condition=available --timeout=300s deployment/vmagent-victoria-metrics-agent -n monitoring || echo "Warning: vmagent may still be starting"
     fi

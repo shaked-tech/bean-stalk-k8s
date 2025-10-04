@@ -4,19 +4,19 @@
 vmselect:
   enabled: true
   replicaCount: 2
-  
+
   # Enable Basic Authentication for vmselect
   extraArgs:
     envflag.enable: "true"
     envflag.prefix: VM_
     loggerFormat: json
-  
+
   env:
     - name: VM_httpAuth.username
       value: "vmuser"
     - name: VM_httpAuth.password
       value: "vmpassword"
-  
+
   resources:
     requests:
       cpu: 100m
@@ -29,19 +29,19 @@ vmselect:
 vminsert:
   enabled: true
   replicaCount: 2
-  
+
   # Enable Basic Authentication for vminsert
   extraArgs:
     envflag.enable: "true"
     envflag.prefix: VM_
     loggerFormat: json
-  
+
   env:
     - name: VM_httpAuth.username
       value: "vmuser"
     - name: VM_httpAuth.password
       value: "vmpassword"
-  
+
   resources:
     requests:
       cpu: 100m
