@@ -90,6 +90,70 @@ METRICS_PROMETHEUS_USERNAME=admin
 METRICS_PROMETHEUS_PASSWORD=secret456
 ```
 
+### METRICS_INSECURE_SKIP_VERIFY
+**Default:** `false` (certificate verification enabled - secure by default)  
+**Description:** Skip TLS certificate verification when connecting to metrics backends. When set to `true`, the backend will not verify SSL/TLS certificates, allowing connections to servers with self-signed or untrusted certificates.
+
+⚠️ **Security Warning:** This option should only be used in development/testing environments or trusted internal networks. Using this in production reduces connection security and exposes you to man-in-the-middle attacks.
+
+**Examples:**
+```bash
+# Disable certificate verification (for development/testing only)
+METRICS_INSECURE_SKIP_VERIFY=true
+
+# Enable certificate verification (default - recommended for production)
+METRICS_INSECURE_SKIP_VERIFY=false
+```
+
+**When to use:**
+- ✅ Development environments with self-signed certificates
+- ✅ Testing environments
+- ✅ Trusted internal networks with self-signed CA
+- ❌ Production environments with external services
+- ❌ Any environment where security is critical
+
+**Logging:**
+When `METRICS_INSECURE_SKIP_VERIFY=true`, the backend will log prominent security warnings on startup:
+```
+⚠️  WARNING: TLS certificate verification is DISABLED
+⚠️  WARNING: This should only be used in development/testing environments
+⚠️  WARNING: Connection security is reduced - use at your own risk
+```
+
+### METRICS_K8S_CLUSTER
+**Default:** `` (empty - no cluster filtering)  
+**Description:** Optional filter to query metrics from a specific Kubernetes cluster when using VictoriaMetrics with multi-cluster monitoring. This adds a `k8s_cluster` label filter to all queries. Only applies when using VictoriaMetrics backend.
+
+**Examples:**
+```bash
+# Query metrics from a specific cluster
+METRICS_K8S_CLUSTER=i1-k8s-mgmt
+
+# Query from production cluster
+METRICS_K8S_CLUSTER=prod-cluster-01
+
+# No filtering (default - queries all clusters)
+METRICS_K8S_CLUSTER=
+```
+
+**When to use:**
+- ✅ Multi-cluster VictoriaMetrics deployments with aggregated metrics
+- ✅ When you need to isolate metrics from a specific cluster
+- ✅ In environments with the `k8s_cluster` label in your metrics
+- ❌ Single cluster deployments (not needed)
+- ❌ When using Prometheus backend (has no effect)
+
+**Example URL with cluster filter:**
+```
+https://victoria-metrics.dyn:8428/api/v1/query?query=container_cpu_usage_seconds_total{k8s_cluster="i1-k8s-mgmt"}
+```
+
+**Logging:**
+When `METRICS_K8S_CLUSTER` is set, the backend will log:
+```
+INFO: VictoriaMetrics client configured with k8s_cluster filter: i1-k8s-mgmt
+```
+
 ## Legacy Support (Backward Compatibility)
 
 ### PROMETHEUS_URL

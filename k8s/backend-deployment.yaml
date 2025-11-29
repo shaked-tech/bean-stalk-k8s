@@ -30,7 +30,7 @@ spec:
           value: "info"  # Options: "debug", "info", "warn", "error"
         # Metrics Backend Configuration
         - name: METRICS_BACKEND
-          value: "prometheus"  # Options: "prometheus", "victoriametrics"
+          value: "victoriametrics"  # Options: "prometheus", "victoriametrics"
         - name: METRICS_PROMETHEUS_URL
           value: "http://prometheus-stack-kube-prom-prometheus.monitoring.svc.cluster.local:9090"
         - name: METRICS_PROMETHEUS_USERNAME

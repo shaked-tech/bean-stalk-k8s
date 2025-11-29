@@ -24,10 +24,12 @@ type MetricsClient interface {
 
 // MetricsClientConfig contains configuration for metrics clients
 type MetricsClientConfig struct {
-	Backend  string // "prometheus" or "vmagent"
-	URL      string // Connection URL for the metrics backend
-	Username string // Optional username for Basic Authentication
-	Password string // Optional password for Basic Authentication
+	Backend            string // "prometheus" or "vmagent"
+	URL                string // Connection URL for the metrics backend
+	Username           string // Optional username for Basic Authentication
+	Password           string // Optional password for Basic Authentication
+	InsecureSkipVerify bool   // Skip TLS certificate verification (default: false)
+	K8sCluster         string // Optional k8s_cluster label filter for VictoriaMetrics
 }
 
 // MetricsClientFactory creates metrics clients based on configuration
@@ -42,11 +44,11 @@ func NewMetricsClientFactory() *MetricsClientFactory {
 func (f *MetricsClientFactory) CreateClient(config MetricsClientConfig) (MetricsClient, error) {
 	switch config.Backend {
 	case "prometheus":
-		return NewPrometheusClient(config.URL, config.Username, config.Password)
+		return NewPrometheusClient(config.URL, config.Username, config.Password, config.InsecureSkipVerify)
 	case "victoriametrics":
-		return NewVictoriaMetricsClient(config.URL, config.Username, config.Password)
+		return NewVictoriaMetricsClient(config.URL, config.Username, config.Password, config.InsecureSkipVerify, config.K8sCluster)
 	default:
 		// Default to Prometheus for backward compatibility
-		return NewPrometheusClient(config.URL, config.Username, config.Password)
+		return NewPrometheusClient(config.URL, config.Username, config.Password, config.InsecureSkipVerify)
 	}
 }

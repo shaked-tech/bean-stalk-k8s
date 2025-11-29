@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
@@ -36,7 +37,21 @@ type PrometheusClient struct {
 }
 
 // NewPrometheusClient creates a new Prometheus client
-func NewPrometheusClient(prometheusURL, username, password string) (*PrometheusClient, error) {
+func NewPrometheusClient(prometheusURL, username, password string, insecureSkipVerify bool) (*PrometheusClient, error) {
+	// Create custom transport for TLS configuration
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: insecureSkipVerify,
+		},
+	}
+
+	// Log security warnings if certificate verification is disabled
+	if insecureSkipVerify {
+		log.Printf("⚠️  WARNING: TLS certificate verification is DISABLED for Prometheus")
+		log.Printf("⚠️  WARNING: This should only be used in development/testing environments")
+		log.Printf("⚠️  WARNING: Connection security is reduced - use at your own risk")
+	}
+
 	config := api.Config{
 		Address: prometheusURL,
 	}
@@ -47,10 +62,11 @@ func NewPrometheusClient(prometheusURL, username, password string) (*PrometheusC
 		config.RoundTripper = &BasicAuthRoundTripper{
 			username: username,
 			password: password,
-			next:     api.DefaultRoundTripper,
+			next:     transport,
 		}
 	} else {
 		log.Printf("INFO: Prometheus client configured without authentication")
+		config.RoundTripper = transport
 	}
 
 	client, err := api.NewClient(config)

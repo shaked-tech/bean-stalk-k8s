@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,17 +18,32 @@ import (
 
 // VictoriaMetricsClient wraps the VictoriaMetrics API client
 type VictoriaMetricsClient struct {
-	baseURL  string
-	client   *http.Client
-	username string
-	password string
+	baseURL    string
+	client     *http.Client
+	username   string
+	password   string
+	k8sCluster string
 }
 
 // NewVictoriaMetricsClient creates a new VictoriaMetrics client
-func NewVictoriaMetricsClient(vmSelectURL, username, password string) (*VictoriaMetricsClient, error) {
+func NewVictoriaMetricsClient(vmSelectURL, username, password string, insecureSkipVerify bool, k8sCluster string) (*VictoriaMetricsClient, error) {
 	// Ensure the URL ends with the API path
 	if !strings.HasSuffix(vmSelectURL, "/") {
 		vmSelectURL += "/"
+	}
+
+	// Create custom transport for TLS configuration
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: insecureSkipVerify,
+		},
+	}
+
+	// Log security warnings if certificate verification is disabled
+	if insecureSkipVerify {
+		log.Printf("⚠️  WARNING: TLS certificate verification is DISABLED for VictoriaMetrics")
+		log.Printf("⚠️  WARNING: This should only be used in development/testing environments")
+		log.Printf("⚠️  WARNING: Connection security is reduced - use at your own risk")
 	}
 
 	// Log authentication status
@@ -37,12 +53,19 @@ func NewVictoriaMetricsClient(vmSelectURL, username, password string) (*Victoria
 		log.Printf("INFO: VictoriaMetrics client configured without authentication")
 	}
 
+	// Log cluster filtering status
+	if k8sCluster != "" {
+		log.Printf("INFO: VictoriaMetrics client configured with k8s_cluster filter: %s", k8sCluster)
+	}
+
 	return &VictoriaMetricsClient{
-		baseURL:  vmSelectURL,
-		username: username,
-		password: password,
+		baseURL:    vmSelectURL,
+		username:   username,
+		password:   password,
+		k8sCluster: k8sCluster,
 		client: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   30 * time.Second,
+			Transport: transport,
 		},
 	}, nil
 }
@@ -56,6 +79,33 @@ func (vm *VictoriaMetricsClient) Close() error {
 // GetClientType returns the type of metrics client
 func (vm *VictoriaMetricsClient) GetClientType() string {
 	return "victoriametrics"
+}
+
+// buildClusterFilter returns the k8s_cluster filter if configured
+func (vm *VictoriaMetricsClient) buildClusterFilter() string {
+	if vm.k8sCluster != "" {
+		return fmt.Sprintf(`k8s_cluster="%s"`, vm.k8sCluster)
+	}
+	return ""
+}
+
+// buildFilters combines namespace and cluster filters
+func (vm *VictoriaMetricsClient) buildFilters(namespace string) string {
+	var filters []string
+
+	if namespace != "" {
+		filters = append(filters, fmt.Sprintf(`namespace="%s"`, namespace))
+	}
+
+	if vm.k8sCluster != "" {
+		filters = append(filters, fmt.Sprintf(`k8s_cluster="%s"`, vm.k8sCluster))
+	}
+
+	if len(filters) == 0 {
+		return ""
+	}
+
+	return "," + strings.Join(filters, ",")
 }
 
 // VMResponse represents VictoriaMetrics API response structure
@@ -82,47 +132,20 @@ func (vm *VictoriaMetricsClient) GetCurrentPodMetrics(ctx context.Context, names
 	utils.Info("Querying VictoriaMetrics for pod metrics (namespace: %s)", namespace)
 	var pods []PodMetric
 
-	// Build namespace filter
-	namespaceFilter := ""
-	if namespace != "" {
-		namespaceFilter = fmt.Sprintf(`namespace="%s"`, namespace)
-	}
+	// Build combined filters (namespace + cluster)
+	filters := vm.buildFilters(namespace)
 
 	// Get current CPU usage - try multiple rate windows for better reliability
 	// Start with shorter rate windows and fall back to longer ones
 	cpuQueries := []string{
 		// Primary: Use 1 minute rate (more responsive)
-		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[1m])`,
-			func() string {
-				if namespaceFilter != "" {
-					return "," + namespaceFilter
-				}
-				return ""
-			}()),
+		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[1m])`, filters),
 		// Fallback 1: Use 30 second rate (very responsive, may be noisy)
-		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[30s])`,
-			func() string {
-				if namespaceFilter != "" {
-					return "," + namespaceFilter
-				}
-				return ""
-			}()),
+		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[30s])`, filters),
 		// Fallback 2: Use 2 minute rate
-		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[2m])`,
-			func() string {
-				if namespaceFilter != "" {
-					return "," + namespaceFilter
-				}
-				return ""
-			}()),
+		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[2m])`, filters),
 		// Last resort: Use 5 minute rate (original)
-		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[5m])`,
-			func() string {
-				if namespaceFilter != "" {
-					return "," + namespaceFilter
-				}
-				return ""
-			}()),
+		fmt.Sprintf(`rate(container_cpu_usage_seconds_total{container!="POD", container!=""%s}[5m])`, filters),
 	}
 
 	var cpuResult *VMResponse
@@ -143,11 +166,7 @@ func (vm *VictoriaMetricsClient) GetCurrentPodMetrics(ctx context.Context, names
 	}
 
 	// Get current Memory usage
-	memQuery := `container_memory_working_set_bytes{container!="POD", container!=""`
-	if namespaceFilter != "" {
-		memQuery += "," + namespaceFilter
-	}
-	memQuery += `}`
+	memQuery := fmt.Sprintf(`container_memory_working_set_bytes{container!="POD", container!=""%s}`, filters)
 
 	utils.Debug("Executing Memory query: %s", memQuery)
 
@@ -227,18 +246,11 @@ func (vm *VictoriaMetricsClient) GetCurrentPodMetrics(ctx context.Context, names
 
 // addResourceLimitsAndRequests adds resource requests and limits to pod metrics
 func (vm *VictoriaMetricsClient) addResourceLimitsAndRequests(ctx context.Context, podMetrics map[string]*PodMetric, namespace string) error {
-	// Build namespace filter
-	namespaceFilter := ""
-	if namespace != "" {
-		namespaceFilter = fmt.Sprintf(`namespace="%s"`, namespace)
-	}
+	// Build combined filters (namespace + cluster)
+	filters := vm.buildFilters(namespace)
 
 	// Get CPU requests
-	cpuReqQuery := `kube_pod_container_resource_requests{resource="cpu"`
-	if namespaceFilter != "" {
-		cpuReqQuery += "," + namespaceFilter
-	}
-	cpuReqQuery += `}`
+	cpuReqQuery := fmt.Sprintf(`kube_pod_container_resource_requests{resource="cpu"%s}`, filters)
 
 	cpuReqResult, err := vm.query(ctx, cpuReqQuery)
 	if err != nil {
@@ -263,11 +275,7 @@ func (vm *VictoriaMetricsClient) addResourceLimitsAndRequests(ctx context.Contex
 	}
 
 	// Get CPU limits
-	cpuLimitQuery := `kube_pod_container_resource_limits{resource="cpu"`
-	if namespaceFilter != "" {
-		cpuLimitQuery += "," + namespaceFilter
-	}
-	cpuLimitQuery += `}`
+	cpuLimitQuery := fmt.Sprintf(`kube_pod_container_resource_limits{resource="cpu"%s}`, filters)
 
 	cpuLimitResult, err := vm.query(ctx, cpuLimitQuery)
 	if err != nil {
@@ -292,11 +300,7 @@ func (vm *VictoriaMetricsClient) addResourceLimitsAndRequests(ctx context.Contex
 	}
 
 	// Get Memory requests
-	memReqQuery := `kube_pod_container_resource_requests{resource="memory"`
-	if namespaceFilter != "" {
-		memReqQuery += "," + namespaceFilter
-	}
-	memReqQuery += `}`
+	memReqQuery := fmt.Sprintf(`kube_pod_container_resource_requests{resource="memory"%s}`, filters)
 
 	memReqResult, err := vm.query(ctx, memReqQuery)
 	if err != nil {
@@ -321,11 +325,7 @@ func (vm *VictoriaMetricsClient) addResourceLimitsAndRequests(ctx context.Contex
 	}
 
 	// Get Memory limits
-	memLimitQuery := `kube_pod_container_resource_limits{resource="memory"`
-	if namespaceFilter != "" {
-		memLimitQuery += "," + namespaceFilter
-	}
-	memLimitQuery += `}`
+	memLimitQuery := fmt.Sprintf(`kube_pod_container_resource_limits{resource="memory"%s}`, filters)
 
 	memLimitResult, err := vm.query(ctx, memLimitQuery)
 	if err != nil {

@@ -33,11 +33,11 @@ A comprehensive web application that provides both real-time and historical visu
 ## 🏗️ Architecture
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   React Frontend│    │   Go Backend     │    │ Kubernetes API  │
+┌─────────────────┐     ┌──────────────────┐    ┌─────────────────┐
+│   React Frontend│     │   Go Backend     │    │ Kubernetes API  │
 │   (nginx)       │───▶│   REST API       │───▶│ metrics-server  │
-│   Port 80       │    │   Port 8080      │    │                 │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
+│   Port 80       │     │   Port 8080      │    │                 │
+└─────────────────┘     └──────────────────┘    └─────────────────┘
 ```
 
 ### Components
@@ -74,21 +74,22 @@ helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
 helm repo update
 ```
 
-#### Required Components:
+#### Required Components, One of:
 1. **Prometheus Stack** - For historical metrics collection and analysis
    - **kube-prometheus-stack** Helm chart (includes Prometheus, Grafana, AlertManager)
    - Automatically installed by deployment script
    - Requires ~2GB memory and 15Gi storage for 7-day retention
 
-2. **Metrics Server** - For real-time metrics
-   - **metrics-server** Helm chart
-   - Automatically installed by deployment script
-   - Required for both real-time and historical analysis
-
-3. **Grafana** - For advanced dashboard visualization
+2. **Grafana** - For advanced dashboard visualization
    - Included in kube-prometheus-stack
    - Pre-configured with custom pod metrics dashboards
    - Admin credentials: admin/admin
+
+Recommended:
+**Metrics Server** - For real-time metrics
+   - **metrics-server** Helm chart
+   - Automatically installed by deployment script
+   - Required for both real-time and historical analysis
 
 ## 🚀 Quick Start
 
@@ -154,11 +155,11 @@ Configure the metrics backend using environment variables:
 ```bash
 # Use Prometheus (default)
 export METRICS_BACKEND=prometheus
-export PROMETHEUS_URL=http://prometheus-stack-kube-prom-prometheus.pod-metrics-dashboard.svc.cluster.local:9090
+export PROMETHEUS_URL=http://prometheus-stack-kube-prom-prometheus.monitoring.svc.cluster.local:9090
 
 # Use VictoriaMetrics
 export METRICS_BACKEND=vmagent
-export VMAGENT_URL=http://vmselect-victoria-metrics.pod-metrics-dashboard.svc.cluster.local:8481
+export VMAGENT_URL=http://vmselect-victoria-metrics.monitoring.svc.cluster.local:8481
 ```
 
 ### Prometheus vs VictoriaMetrics Comparison
