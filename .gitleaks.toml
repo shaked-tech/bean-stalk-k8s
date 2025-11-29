@@ -1,0 +1,214 @@
+# Gitleaks configuration for bean-stalk-k8s
+# This extends the default gitleaks rules with custom patterns
+
+# ============================================================
+# AI/ML API Keys
+# ============================================================
+
+# Anthropic API keys
+[[rules]]
+id = "anthropic-api-key"
+description = "Detected Anthropic API Key"
+regex = '''sk-ant-api\d{2}-[A-Za-z0-9_-]{95}'''
+tags = ["api", "anthropic", "key", "secret"]
+
+[[rules.Entropies]]
+Min = "3.5"
+Max = "8"
+
+# OpenAI API keys
+[[rules]]
+id = "openai-api-key"
+description = "Detected OpenAI API Key"
+regex = '''sk-[a-zA-Z0-9]{20,50}'''
+tags = ["api", "openai", "key", "secret"]
+
+# ============================================================
+# Cloud Provider Credentials
+# ============================================================
+
+# AWS Access Key ID (already covered by default gitleaks, but explicit)
+[[rules]]
+id = "aws-access-key-id"
+description = "AWS Access Key ID"
+regex = '''(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'''
+tags = ["aws", "credentials", "key"]
+
+# AWS Secret Access Key
+[[rules]]
+id = "aws-secret-key"
+description = "AWS Secret Access Key"
+regex = '''(?i)aws(.{0,20})?(?-i)['\"][0-9a-zA-Z\/+]{40}['\"]'''
+tags = ["aws", "credentials", "secret"]
+
+# GCP Service Account
+[[rules]]
+id = "gcp-service-account"
+description = "Google Cloud Service Account"
+regex = '''"type":\s*"service_account"'''
+tags = ["gcp", "credentials", "key"]
+
+# Azure Connection String
+[[rules]]
+id = "azure-connection-string"
+description = "Azure Connection String"
+regex = '''(?i)DefaultEndpointsProtocol=https;AccountName=[a-z0-9]+;AccountKey=[A-Za-z0-9+/=]{88};EndpointSuffix='''
+tags = ["azure", "credentials", "connection-string"]
+
+# ============================================================
+# Version Control & CI/CD
+# ============================================================
+
+# GitHub Personal Access Token
+[[rules]]
+id = "github-pat"
+description = "GitHub Personal Access Token"
+regex = '''ghp_[0-9a-zA-Z]{36}'''
+tags = ["github", "token", "pat"]
+
+# GitHub OAuth Token
+[[rules]]
+id = "github-oauth"
+description = "GitHub OAuth Token"
+regex = '''gho_[0-9a-zA-Z]{36}'''
+tags = ["github", "token", "oauth"]
+
+# GitHub App Token
+[[rules]]
+id = "github-app-token"
+description = "GitHub App Token"
+regex = '''(ghu|ghs)_[0-9a-zA-Z]{36}'''
+tags = ["github", "token", "app"]
+
+# GitLab Personal Access Token
+[[rules]]
+id = "gitlab-pat"
+description = "GitLab Personal Access Token"
+regex = '''glpat-[0-9a-zA-Z\-_]{20}'''
+tags = ["gitlab", "token", "pat"]
+
+# ============================================================
+# Container & Kubernetes
+# ============================================================
+
+# Docker Registry Credentials
+[[rules]]
+id = "docker-registry-auth"
+description = "Docker Registry Authentication"
+regex = '''(?i)("auths":\s*{[^}]*"auth":\s*"[A-Za-z0-9+/=]{20,}")'''
+tags = ["docker", "credentials", "registry"]
+
+# Kubernetes Secret (base64 encoded values)
+[[rules]]
+id = "kubernetes-secret"
+description = "Kubernetes Secret Value"
+regex = '''(?i)(password|secret|token|key):\s*[A-Za-z0-9+/=]{20,}'''
+path = '''\.ya?ml$'''
+tags = ["kubernetes", "secret"]
+
+# ============================================================
+# Database & Services
+# ============================================================
+
+# Generic Database Connection String
+[[rules]]
+id = "database-connection-string"
+description = "Database Connection String"
+regex = '''(?i)(mongodb|mysql|postgresql|mssql|oracle)://[^:]+:[^@]+@'''
+tags = ["database", "connection-string"]
+
+# PostgreSQL Connection String
+[[rules]]
+id = "postgresql-connection"
+description = "PostgreSQL Connection String"
+regex = '''postgres(ql)?://[a-zA-Z0-9_-]+:[^@\s]+@[a-zA-Z0-9.-]+'''
+tags = ["postgresql", "database", "connection-string"]
+
+# Redis Connection String
+[[rules]]
+id = "redis-connection"
+description = "Redis Connection String"
+regex = '''redis://[^@\s]*:[^@\s]+@[a-zA-Z0-9.-]+'''
+tags = ["redis", "connection-string"]
+
+# ============================================================
+# Generic Secrets
+# ============================================================
+
+# Generic API Key Pattern
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key"
+regex = '''(?i)(api[_-]?key|apikey)\s*[:=]\s*['"][a-z0-9_\-]{32,}['"]'''
+tags = ["api", "key", "generic"]
+
+# JWT Token
+[[rules]]
+id = "jwt-token"
+description = "JWT Token"
+regex = '''eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'''
+tags = ["jwt", "token"]
+
+# Private Key
+[[rules]]
+id = "private-key"
+description = "Private Key"
+regex = '''-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'''
+tags = ["private-key", "cryptography"]
+
+# Generic Password in Code
+[[rules]]
+id = "generic-password"
+description = "Generic Password"
+regex = '''(?i)(password|passwd|pwd)\s*[:=]\s*['"][^'"\s]{8,}['"]'''
+tags = ["password", "credentials"]
+
+# Bearer Token
+[[rules]]
+id = "bearer-token"
+description = "Bearer Token"
+regex = '''(?i)bearer\s+[a-zA-Z0-9_\-\.=]{20,}'''
+tags = ["bearer", "token", "authorization"]
+
+# ============================================================
+# Allowlist Configuration
+# ============================================================
+
+[allowlist]
+description = "Allowlist for false positives"
+
+# Paths to exclude from scanning
+paths = [
+    # Example files (template files with placeholder values)
+    '''\.example$''',
+    '''\.example\.''',
+    '''example\.env$''',
+
+    # Test files with mock/dummy data
+    '''_test\.go$''',
+    '''\.test\.ts$''',
+    '''\.spec\.ts$''',
+
+    # Documentation
+    '''README\.md$''',
+    '''^docs/''',
+
+    # Dependencies (don't scan node_modules, vendor dirs)
+    '''node_modules/''',
+    '''vendor/''',
+    '''^\.git/''',
+]
+
+# Specific commits to ignore (if needed)
+commits = []
+
+# Regular expressions for common false positives
+regexes = [
+    # Common test values
+    '''(?i)example|sample|dummy|fake|test|mock|placeholder''',
+
+    # Common documentation patterns
+    '''(?i)your[-_]api[-_]key[-_]here''',
+    '''(?i)replace[-_]with[-_]your''',
+    '''(?i)\[your-.*\]''',
+]

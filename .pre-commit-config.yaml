@@ -38,6 +38,13 @@ repos:
       # Check for debugger imports and breakpoint() calls in Python
       - id: debug-statements
 
+  # Secret scanning
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.2
+    hooks:
+      - id: gitleaks
+        args: ['--config=.gitleaks.toml']
+
   # Python code formatting and linting
   - repo: https://github.com/psf/black
     rev: 24.10.0

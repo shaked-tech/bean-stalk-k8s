@@ -56,6 +56,12 @@ func NewHandler() (*Handler, error) {
 		password = getEnvWithDefault("METRICS_VICTORIAMETRICS_PASSWORD", "")
 	}
 
+	// Get TLS configuration - default is secure (false)
+	insecureSkipVerify := getEnvBoolWithDefault("METRICS_INSECURE_SKIP_VERIFY", false)
+
+	// Get optional k8s_cluster filter for VictoriaMetrics
+	k8sCluster := getEnvWithDefault("METRICS_K8S_CLUSTER", "")
+
 	// Read advanced configuration from environment variables
 	timeout := getEnvWithDefault("METRICS_TIMEOUT", "30s")
 	retryAttempts := getEnvIntWithDefault("METRICS_RETRY_ATTEMPTS", 3)
@@ -66,10 +72,12 @@ func NewHandler() (*Handler, error) {
 	// Create metrics client using factory
 	factory := k8s.NewMetricsClientFactory()
 	config := k8s.MetricsClientConfig{
-		Backend:  backend,
-		URL:      metricsURL,
-		Username: username,
-		Password: password,
+		Backend:            backend,
+		URL:                metricsURL,
+		Username:           username,
+		Password:           password,
+		InsecureSkipVerify: insecureSkipVerify,
+		K8sCluster:         k8sCluster,
 	}
 
 	metricsClient, err := factory.CreateClient(config)
@@ -83,10 +91,16 @@ func NewHandler() (*Handler, error) {
 		authStatus = "enabled"
 	}
 
+	tlsStatus := "enabled (certificates verified)"
+	if insecureSkipVerify {
+		tlsStatus = "DISABLED (certificate verification skipped)"
+	}
+
 	log.Printf("INFO: Metrics configuration loaded:")
 	log.Printf("  - Backend: %s", backend)
 	log.Printf("  - URL: %s", metricsURL)
 	log.Printf("  - Authentication: %s", authStatus)
+	log.Printf("  - TLS Certificate Verification: %s", tlsStatus)
 	log.Printf("  - Timeout: %s", timeout)
 	log.Printf("  - Retry Attempts: %d", retryAttempts)
 	log.Printf("  - Features: Caching=%v, Historical=%v, Trend=%v", enableCaching, enableHistorical, enableTrend)
