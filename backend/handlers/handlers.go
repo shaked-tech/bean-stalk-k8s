@@ -398,6 +398,19 @@ func (h *Handler) GetPodTrends(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetClusterInfo returns cluster information
+func (h *Handler) GetClusterInfo(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	clusterName := getEnvWithDefault("METRICS_K8S_CLUSTER", "Unknown")
+
+	response := map[string]string{
+		"clusterName": clusterName,
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
 // Health returns a simple health check response
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

@@ -37,6 +37,10 @@ export interface PodSummaryResponse {
   generatedAt: string;
 }
 
+export interface ClusterInfo {
+  clusterName: string;
+}
+
 // Recommendation types
 export interface ResourceRecommendation {
   currentRequest: string;
@@ -329,6 +333,23 @@ const MOCK_PODS: PodMetrics[] = [
     labels: { app: 'auth-service', tier: 'security' }
   }
 ];
+
+export const fetchClusterInfo = async (): Promise<string> => {
+  if (SAFE_USE_MOCK_DATA) {
+    // Simulate API delay for realistic testing
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return 'Development Cluster';
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/cluster/info`);
+    const data: ClusterInfo = await response.json();
+    return data.clusterName;
+  } catch (error) {
+    console.error('Error fetching cluster info:', error);
+    return 'Unknown';
+  }
+};
 
 export const fetchNamespaces = async (): Promise<string[]> => {
   if (SAFE_USE_MOCK_DATA) {

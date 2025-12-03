@@ -27,7 +27,7 @@ import {
 import PodMetricsTable from './components/PodMetricsTable';
 import NamespaceFilter from './components/NamespaceFilter';
 import { useTheme } from './theme/ThemeContext';
-import { fetchNamespaces, fetchPodMetrics, fetchPodSummary, PodMetrics, PodSummaryResponse } from './services/api';
+import { fetchNamespaces, fetchPodMetrics, fetchPodSummary, fetchClusterInfo, PodMetrics, PodSummaryResponse } from './services/api';
 
 function App() {
   const { mode, toggleTheme } = useTheme();
@@ -45,10 +45,21 @@ function App() {
   const [activeFilter, setActiveFilter] = useState<'high-cpu' | 'low-cpu' | 'high-memory' | 'low-memory' | null>(null);
   const [searchText, setSearchText] = useState<string>('');
   const [debouncedSearchText, setDebouncedSearchText] = useState<string>('');
+  const [clusterName, setClusterName] = useState<string>('');
 
-  // Fetch namespaces on component mount
+  // Fetch cluster info and namespaces on component mount
   useEffect(() => {
-    const loadNamespaces = async () => {
+    const loadInitialData = async () => {
+      // Fetch cluster info
+      try {
+        const cluster = await fetchClusterInfo();
+        setClusterName(cluster);
+      } catch (err) {
+        console.error('Error fetching cluster info:', err);
+        setClusterName('Unknown');
+      }
+
+      // Fetch namespaces
       try {
         const namespacesData = await fetchNamespaces();
         setNamespaces(namespacesData);
@@ -59,7 +70,7 @@ function App() {
       }
     };
 
-    loadNamespaces();
+    loadInitialData();
   }, []);
 
   // Debounce search text
@@ -241,9 +252,26 @@ function App() {
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static" sx={{ mb: 3 }}>
         <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Kubernetes Pod Metrics Dashboard
-          </Typography>
+          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="h6" component="div">
+              Kubernetes Pod Metrics Dashboard
+            </Typography>
+            {clusterName && (
+              <Box
+                sx={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: 1,
+                  display: { xs: 'none', sm: 'block' }
+                }}
+              >
+                <Typography variant="body2" component="span">
+                  {clusterName}
+                </Typography>
+              </Box>
+            )}
+          </Box>
           <Tooltip title="Refresh Data">
             <IconButton
               color="inherit"

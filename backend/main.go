@@ -21,6 +21,7 @@ func main() {
 
 	// Register routes
 	mux.HandleFunc("/health", handler.Health)
+	mux.HandleFunc("/api/cluster/info", handler.GetClusterInfo)
 	mux.HandleFunc("/api/namespaces", handler.GetNamespaces)
 	mux.HandleFunc("/api/pods", handler.GetPodMetrics)
 	mux.HandleFunc("/api/pods/analysis", handler.GetHistoricalAnalysis)

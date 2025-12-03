@@ -286,6 +286,9 @@ resources:${rec.cpu.recommendedRequest || rec.memory.recommendedRequest ? `
                     bgcolor: (theme) => theme.palette.mode === 'dark'
                       ? 'grey.900'
                       : 'grey.50',
+                    color: (theme) => theme.palette.mode === 'dark'
+                      ? 'grey.100'
+                      : 'grey.900',
                     fontFamily: 'monospace',
                     position: 'relative',
                     maxHeight: '400px',
@@ -311,7 +314,8 @@ resources:${rec.cpu.recommendedRequest || rec.memory.recommendedRequest ? `
                     margin: 0,
                     fontSize: '0.875rem',
                     whiteSpace: 'pre-wrap',
-                    paddingRight: '40px'
+                    paddingRight: '40px',
+                    color: 'inherit'
                   }}>
                     {generateYAML(recommendation)}
                   </pre>
@@ -358,13 +362,7 @@ resources:${rec.cpu.recommendedRequest || rec.memory.recommendedRequest ? `
                 {/* Recommended Resources */}
                 <Paper sx={{
                   flex: 1,
-                  p: 2,
-                  bgcolor: (theme) => theme.palette.mode === 'dark'
-                    ? 'success.dark'
-                    : 'success.light',
-                  backgroundImage: (theme) => theme.palette.mode === 'dark'
-                    ? `linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05))`
-                    : 'none'
+                  p: 2
                 }}>
                   <Typography variant="subtitle2" gutterBottom color={(theme) => theme.palette.mode === 'dark' ? 'success.light' : 'success.dark'}>
                     Recommended Resources
